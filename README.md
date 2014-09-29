@@ -39,34 +39,32 @@ All objects must have a unique identifier property, named `_id`. LowlaDB will cr
 You retrieve objects using the `find` method. This takes a query object that acts as a selector for the objects to be returned. The `find` method returns a `Cursor` object that you can iterate or convert to an array. LowlaDB also supports real-time updating where it will monitor the collection for changes and automatically notify you when the query results may have changed.
 
     var todos = LowlaDB.collection('mydb', 'todos');
-	
+
 	// Find with no query object returns all records in the collection
-	todos.find(function(err, cursor) { var docs = cursor.toArray(); });
+	todos.find().each(function(err, doc) { });
+	todos.find().toArray(function(err, docs) { });
 	
 	// Or, using a promise
-	todos.find().then(function(cursor) { var docs = cursor.toArray(); }, function(err));
+	todos.find().toArray().then(function(docs) { }, function(err));
 	
 	// Or, to be notified whenever the collection changes
-	todos.find().on(function(err, cursor) { var docs = cursor.toArray(); });
+	todos.find().on(function(err, docs) { });
 
 The callback specified in the `on` method will be called whenever *any* changes are made to the collection. This includes changes made as a result of inserting or modifying records as well as changes introduced during synchronization. This allows you to centralize all of your UI update code in a single method.
 
 Initially, LowlaDB will support `find` with no query object or with a query object matching a single property:
 
-    todos.find({ completed:false }).then(function(cursor) {});
+    todos.find({ completed:false }).toArray().then(function(docs) {});
 
 Support for richer queries will be added later, along with sorting.
 
 If you know you only require a single record, you can use `findOne` rather than `find` to return the object directly without needing to iterate a cursor.
 
 ## Updating Objects ##
-You update objects using either the `update` or `findAndModify` methods. These take a query object, subject to the same requirements as the `find` methods, and also an object to either replace the existing data or describe the modifications to be made to the existing object. For example
+You update objects using the `findAndModify` method. This takes a query object, subject to the same requirements as the `find` methods, and also an object to either replace the existing data or describe the modifications to be made to the existing object. For example
 
     var todos = LowlaDB.collection('mydb', 'todos');
 	todos.findAndModify({ _id: 'theId' }, { $set: { completed: true } });
-	
-	// or, using update
-	todos.update({ _id: 'theId' }, { $set: { completed: true } });
 
 Initially, LowlaDB will support `$set` and `$unset` to modify or remove properties from a document. More operators will be added later.
 
