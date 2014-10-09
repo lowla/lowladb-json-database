@@ -29,7 +29,7 @@ describe('LowlaDB API', function() {
       return coll.ready.then(function() {
         collTwo = LowlaDB.collection('dbName', 'collectionTwo');
         return collTwo.ready;
-      })
+      });
     });
 
     afterEach(function() {
@@ -57,7 +57,7 @@ describe('LowlaDB API', function() {
           return obj._id;
         })
         .then(function(objId) {
-          return coll.find({_id: objId}).toArray()
+          return coll.find({_id: objId}).toArray();
         })
         .then(function(arr) {
           should.exist(arr);
@@ -192,7 +192,7 @@ describe('LowlaDB API', function() {
         })
         .then(function(arr) {
           arr.should.have.length(3);
-        })
+        });
     });
 
     it('can sort documents', function() {
@@ -239,5 +239,5 @@ describe('LowlaDB API', function() {
     });
 
     // TODO - test that findAndModify without ops will preserve the _id
-  })
+  });
 });

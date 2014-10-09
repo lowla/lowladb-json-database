@@ -49,9 +49,9 @@
         }
         else if (i === '$unset') {
           opMode = true;
-          for (var j in operations[i]) {
-            if (obj.hasOwnProperty(j)) {
-              delete obj[j];
+          for (var j2 in operations[i]) {
+            if (obj.hasOwnProperty(j2)) {
+              delete obj[j2];
             }
           }
         }
@@ -121,12 +121,12 @@
 
         cursorRequest.onsuccess = function (e) {
           var result = e.target.result;
-          if (!!result == false) {
+          if (!result) {
             resolve(data);
             return;
           }
 
-          if (result.value.clientId.indexOf(clientIdPrefix) == 0 && filterApplies(cursor._filter, result.value.document)) {
+          if (result.value.clientId.indexOf(clientIdPrefix) === 0 && filterApplies(cursor._filter, result.value.document)) {
             data.push(result.value.document);
           }
 
@@ -190,7 +190,7 @@
   };
 
   Cursor.prototype.sort = function(sort) {
-    if (typeof(sort) == 'array' && sort.length % 2) {
+    if (sort instanceof Array && sort.length % 2) {
       throw Error('Invalid sort array, must be pairs');
     }
     return this.cloneWithOptions({ sort: sort });
@@ -204,7 +204,7 @@
     var data = this._applyFilter();
     data.forEach(function(doc) {
       callback(null, doc);
-    })
+    });
   };
 
   Cursor.prototype.toArray = function(callback) {
@@ -256,7 +256,7 @@
 
       request.onerror = function (e) {
         reject(e);
-      }
+      };
     });
   };
 
@@ -327,7 +327,7 @@
     return this.find(filter).toArray()
       .then(function(arr) {
         return new Promise(function(resolve, reject) {
-          if (0 == arr.length) {
+          if (0 === arr.length) {
             resolve(null);
             return;
           }
@@ -355,7 +355,7 @@
     return this.find(filter).toArray()
       .then(function(arr) {
         return new Promise(function(resolve, reject) {
-          if (0 == arr.length) {
+          if (0 === arr.length) {
             resolve(0);
             return;
           }
@@ -369,8 +369,8 @@
               };
               request.onerror = function(event) {
                 reject(0);
-              }
-            })
+              };
+            });
           }))
             .then(function(deleted) {
               resolve(deleted.length);
@@ -378,8 +378,8 @@
             .catch(function(err) {
               reject(err);
             });
-        })
-      })
+        });
+      });
   };
 
   var lowlaDB = {
