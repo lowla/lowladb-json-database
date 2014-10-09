@@ -151,6 +151,28 @@ describe('LowlaDB API', function() {
         });
     });
 
+    it('knows to not modify documents that are missing', function() {
+      return coll.insert({a: 1})
+        .then(function() {
+          return coll.insert({a: 2})
+        })
+        .then(function() {
+          return coll.insert({a: 3})
+        })
+        .then(function() {
+          return coll.findAndModify({x: 22}, {$set: {b: 2}});
+        })
+        .then(function() {
+          return coll.find({}).sort('a').toArray();
+        })
+        .then(function(arr) {
+          arr.should.have.length(3);
+          should.not.exist(arr[0].b);
+          should.not.exist(arr[1].b);
+          should.not.exist(arr[2].b);
+        })
+    });
+
     it('can remove a document', function() {
       var id1, id2, id3;
       return coll.insert({a: 1})
@@ -236,6 +258,47 @@ describe('LowlaDB API', function() {
           arr.should.have.length(1);
           arr[0].a.should.equal(55);
         });
+    });
+
+    it('can watch for changes on collections', function() {
+      var wrappedCallback = null;
+
+      var callback = function(err, cursor) {
+        wrappedCallback(err, cursor);
+      };
+
+      return insertDocuments([{a: 1}, {a: 2}])
+        .then(function(arr) {
+          return new Promise(function(resolve, reject) {
+            wrappedCallback = function(err, cursor) {
+              cursor.toArray().then(function (arr) {
+                arr.should.have.length(2);
+                resolve();
+              });
+            };
+
+            coll.find({}).sort('a').on(callback);
+          });
+        })
+        .then(function() {
+          return new Promise(function(resolve, reject) {
+            wrappedCallback = function(err, cursor) {
+              cursor.toArray().then(function (arr) {
+                try {
+                  arr.should.have.length(2);
+                  arr[0].b.should.equal(5);
+                  resolve();
+                }
+                catch (e) {
+                  reject(e);
+                }
+              })
+            };
+
+            coll.findAndModify({a: 1}, { $set: { b: 5 } });
+          })
+        })
+        ;
     });
 
     // TODO - test that findAndModify without ops will preserve the _id

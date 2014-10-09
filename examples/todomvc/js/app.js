@@ -33,6 +33,9 @@ jQuery(function ($) {
 	var App = {
 		init: function () {
       this.todos = LowlaDB.collection('lowlaSample', 'todos');
+      this.todos.find({}).on(function(err, cursor) {
+        this.render(cursor);
+      }.bind(this));
 
 			this.cacheElements();
 			this.bindEvents();
@@ -68,9 +71,12 @@ jQuery(function ($) {
 			list.on('focusout', '.edit', this.update.bind(this));
 			list.on('click', '.destroy', this.destroy.bind(this));
 		},
-		render: function () {
+		render: function (cursor) {
       var self = this;
-      this.todos.find().toArray().then(function(todos) {
+      if (!cursor) {
+        cursor = this.todos.find();
+      }
+      cursor.toArray().then(function(todos) {
         self.$todoList.html(self.todoTemplate(todos));
         self.$main.toggle(todos.length > 0);
         self.$toggleAll.prop('checked', self.getActiveTodos().length === 0);
@@ -146,14 +152,12 @@ jQuery(function ($) {
 			});
 
 			$input.val('');
-
-			this.render();
 		},
 		toggle: function (e) {
       var id = this.idFromEl(e.target);
       var self = this;
       this.todos.findOne({id: id}).then(function(doc) {
-        self.todos.findAndModify({id: id}, { $set: { completed: !doc.completed }}).then(function() { self.render() });
+        self.todos.findAndModify({id: id}, { $set: { completed: !doc.completed }});
       });
 		},
 		edit: function (e) {
@@ -183,16 +187,16 @@ jQuery(function ($) {
       var self = this;
       var id = this.idFromEl(e.target);
       if (val) {
-        self.todos.findAndModify({id: id}, { $set: { title: val }}).then(function() { self.render() });
+        self.todos.findAndModify({id: id}, { $set: { title: val }});
       }
       else {
-        self.todos.remove({id: id}).then(function() { self.render() });
+        self.todos.remove({id: id});
       }
 		},
 		destroy: function (e) {
       var self = this;
       var id = this.idFromEl(e.target);
-      self.todos.remove({id: id}).then(function() { self.render(); });
+      self.todos.remove({id: id});
 		}
 	};
 

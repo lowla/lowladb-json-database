@@ -25,8 +25,8 @@
 
   var filterApplies = function(filter, doc) {
     for (var i in filter) {
-      if (filter.hasOwnProperty(i) && doc.hasOwnProperty(i)) {
-        if (filter[i] !== doc[i]) {
+      if (filter.hasOwnProperty(i)) {
+        if (!doc.hasOwnProperty(i) || filter[i] !== doc[i]) {
           return false;
         }
       }
@@ -171,7 +171,30 @@
         }
         return data.slice(0, cursor._options.limit);
       });
- };
+  };
+
+  var liveCursors = {};
+
+  Cursor.prototype.on = function (callback) {
+    var coll = this._collection;
+    var key = coll.dbName + '.' + coll.collectionName;
+    if (!liveCursors[key]) {
+      liveCursors[key] = [];
+    }
+    liveCursors[key].push({ cursor: this, callback: callback });
+    callback(null, this);
+  };
+
+  var notifyLive = function (coll) {
+    var key = coll.dbName + '.' + coll.collectionName;
+    if (!liveCursors[key]) {
+      return;
+    }
+
+    liveCursors[key].forEach(function (watcher) {
+      watcher.callback(null, watcher.cursor);
+    })
+  };
 
   Cursor.prototype.cloneWithOptions = function(options) {
     var answer = new Cursor(this._collection, this._filter);
@@ -260,34 +283,34 @@
     });
   };
 
-  Collection.prototype.insert = function(obj, callback) {
+  Collection.prototype._updateIndexedDB = function(obj) {
     var coll = this;
-    return this.ready
-      .then(function (db) {
-        if (!obj) {
-          throw Error("Invalid object");
-        }
+    return this.ready.then(function(db) {
+      return new Promise(function(resolve, reject) {
+        obj._id = obj._id || generateId();
+        var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + obj._id;
 
-        return new Promise(function(resolve, reject) {
-          obj._id = obj._id || generateId();
-          var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + obj._id;
-
-          var trans = db.transaction(["lowla"], "readwrite");
-          var store = trans.objectStore("lowla");
-          var request = store.put({
-            "clientId": lowlaID,
-            "document": obj
-          });
-
-          trans.oncomplete = function (e) {
-            resolve(obj);
-          };
-
-          request.onerror = function (e) {
-            reject(e);
-          };
+        var trans = db.transaction(["lowla"], "readwrite");
+        var store = trans.objectStore("lowla");
+        var request = store.put({
+          "clientId": lowlaID,
+          "document": obj
         });
-      })
+
+        trans.oncomplete = function (e) {
+          resolve(obj);
+          notifyLive(coll);
+        };
+
+        request.onerror = function (e) {
+          reject(e);
+        };
+      });
+    });
+  };
+
+  Collection.prototype.insert = function(obj, callback) {
+    return this._updateIndexedDB(obj)
       .then(function(savedObj) {
         if (callback) {
           callback(null, savedObj);
@@ -326,27 +349,12 @@
     var coll = this;
     return this.find(filter).toArray()
       .then(function(arr) {
-        return new Promise(function(resolve, reject) {
-          if (0 === arr.length) {
-            resolve(null);
-            return;
-          }
+        if (0 == arr.length) {
+          return null;
+        }
 
-          var objectStore = coll.db.transaction(["lowla"], "readwrite").objectStore("lowla");
-          var obj = mutateObject(arr[0], operations);
-          var requestUpdate = objectStore.put(
-            {
-              clientId: coll.dbName + '.' + coll.collectionName + '$' + obj._id,
-              document: obj
-            });
-
-          requestUpdate.onerror = function (event) {
-            reject(event.target || Error('Error modifying obj'));
-          };
-          requestUpdate.onsuccess = function (event) {
-            resolve(obj);
-          };
-        });
+        var obj = mutateObject(arr[0], operations);
+        return coll._updateIndexedDB(obj);
       });
   };
 
@@ -374,6 +382,7 @@
           }))
             .then(function(deleted) {
               resolve(deleted.length);
+              notifyLive(coll);
             })
             .catch(function(err) {
               reject(err);
