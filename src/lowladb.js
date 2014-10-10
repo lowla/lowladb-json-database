@@ -2,7 +2,7 @@
  * Created by michael on 9/22/14.
  */
 
-(function() {
+var LowlaDB = (function(LowlaDB) {
   'use strict';
 
   var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
@@ -139,6 +139,9 @@
       });
     })
       .then(function(data) {
+        return data.map(LowlaDB.SyncCoordinator.convertSpecialTypes);
+      })
+      .then(function(data) {
         if (!cursor._options.sort) {
           return data;
         }
@@ -193,7 +196,7 @@
 
     liveCursors[key].forEach(function (watcher) {
       watcher.callback(null, watcher.cursor);
-    })
+    });
   };
 
   Cursor.prototype.cloneWithOptions = function(options) {
@@ -261,27 +264,37 @@
     this.collectionName = collectionName;
 
     var coll = this;
-    this.ready = new Promise(function (resolve, reject) {
-      var request = indexedDB.open("lowla", 1);
-      request.onupgradeneeded = function (e) {
-        var db = e.target.result;
+    if (!Collection.ready) {
+      this.ready = Collection.ready = new Promise(function (resolve, reject) {
+        var request = indexedDB.open("lowla", 1);
+        request.onupgradeneeded = function (e) {
+          var db = e.target.result;
 
-        e.target.transaction.onerror = indexedDBOnError;
+          e.target.transaction.onerror = indexedDBOnError;
 
-        var store = db.createObjectStore("lowla",
-          {keyPath: "clientId"});
-      };
+          var store = db.createObjectStore("lowla",
+            {keyPath: "clientId"});
+        };
 
-      request.onsuccess = function (e) {
-        coll.db = e.target.result;
-        resolve(coll.db);
-      };
+        request.onsuccess = function (e) {
+          coll.db = e.target.result;
+          resolve(coll.db);
+        };
 
-      request.onerror = function (e) {
-        reject(e);
-      };
-    });
+        request.onerror = function (e) {
+          reject(e);
+        };
+      });
+    }
+    else {
+      this.ready = Collection.ready.then(function (db) {
+        coll.db = db;
+        return db;
+      });
+    }
   };
+
+  Collection.ready = false;
 
   Collection.prototype._updateIndexedDB = function(obj) {
     var coll = this;
@@ -349,7 +362,7 @@
     var coll = this;
     return this.find(filter).toArray()
       .then(function(arr) {
-        if (0 == arr.length) {
+        if (0 === arr.length) {
           return null;
         }
 
@@ -391,16 +404,41 @@
       });
   };
 
-  var lowlaDB = {
-    collection: function(dbName, collectionName) {
-      return new Collection(dbName, collectionName);
-    },
+  LowlaDB.collection = function(dbName, collectionName) {
+    return new Collection(dbName, collectionName);
+  };
 
-    sync: function(serverUrl, options) {
+  LowlaDB.sync = function(serverUrl, options) {
+    LowlaDB._syncCoordinator = new LowlaDB.SyncCoordinator(serverUrl, options);
+    if (options && -1 == options.pollFrequency) {
+      return;
+    }
 
+    return LowlaDB._syncCoordinator.fetchChanges().then(function () {
+      if (options && 0 !== options.pollFrequency) {
+        var pollFunc = function () {
+          LowlaDB._syncCoordinator.fetchChanges()
+            .then(function () {
+              setTimeout(pollFunc, options.pollFrequency);
+            });
+        };
+
+        setTimeout(pollFunc, options.pollFrequency);
+      }
+    }, function (err) {
+      throw err;
+    });
+  };
+
+  LowlaDB.close = function() {
+    if (Collection.ready) {
+      return Collection.ready.then(function(db) {
+        Collection.ready = false;
+        db.close();
+      });
     }
   };
 
-  this.LowlaDB = lowlaDB;
+  return LowlaDB;
 }
-).call(this);
+)(LowlaDB || {});

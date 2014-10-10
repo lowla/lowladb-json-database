@@ -33,6 +33,7 @@ jQuery(function ($) {
 	var App = {
 		init: function () {
       this.todos = LowlaDB.collection('lowlaSample', 'todos');
+      LowlaDB.sync('http://localhost:3000', { pollFrequency: 1000 });
       this.todos.find({}).on(function(err, cursor) {
         this.render(cursor);
       }.bind(this));

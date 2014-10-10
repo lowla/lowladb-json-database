@@ -15,6 +15,8 @@ module.exports = function(config) {
 
     // list of files / patterns to load in the browser
     files: [
+      'node_modules/sinon/pkg/sinon.js',
+      'node_modules/sinon-chai/lib/sinon-chai.js',
       'src/*.js',
       'tests/**/*.spec.js'
     ],

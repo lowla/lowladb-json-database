@@ -33,8 +33,7 @@ describe('LowlaDB API', function() {
     });
 
     afterEach(function() {
-      coll.db.close();
-      collTwo.db.close();
+      LowlaDB.close();
     });
 
     it('can be created', function() {
@@ -154,10 +153,10 @@ describe('LowlaDB API', function() {
     it('knows to not modify documents that are missing', function() {
       return coll.insert({a: 1})
         .then(function() {
-          return coll.insert({a: 2})
+          return coll.insert({a: 2});
         })
         .then(function() {
-          return coll.insert({a: 3})
+          return coll.insert({a: 3});
         })
         .then(function() {
           return coll.findAndModify({x: 22}, {$set: {b: 2}});
@@ -170,7 +169,7 @@ describe('LowlaDB API', function() {
           should.not.exist(arr[0].b);
           should.not.exist(arr[1].b);
           should.not.exist(arr[2].b);
-        })
+        });
     });
 
     it('can remove a document', function() {
@@ -292,11 +291,11 @@ describe('LowlaDB API', function() {
                 catch (e) {
                   reject(e);
                 }
-              })
+              });
             };
 
             coll.findAndModify({a: 1}, { $set: { b: 5 } });
-          })
+          });
         })
         ;
     });
