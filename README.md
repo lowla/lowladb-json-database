@@ -36,7 +36,7 @@ or use a promise
 All objects must have a unique identifier property, named `_id`. LowlaDB will create one for you if you try to insert an object without one.
 
 ## Retrieving Objects ##
-You retrieve objects using the `find` method. This takes a query object that acts as a selector for the objects to be returned. The `find` method returns a `Cursor` object that you can iterate or convert to an array. LowlaDB also supports real-time updating where it will monitor the collection for changes and automatically notify you when the query results may have changed.
+You retrieve objects using the `find` method. This takes a query object that acts as a selector for the objects to be returned. The `find` method returns a `Cursor` object that you can iterate or convert to an array.
 
     var todos = LowlaDB.collection('mydb', 'todos');
 
@@ -47,8 +47,14 @@ You retrieve objects using the `find` method. This takes a query object that act
 	// Or, using a promise
 	todos.find().toArray().then(function(docs) { }, function(err));
 	
-	// Or, to be notified whenever the collection changes
-	todos.find().on(function(err, docs) { });
+LowlaDB also supports real-time updating where it will monitor the collection for changes and automatically notify you when the query results may have changed.
+	
+	todos.find().on(function(err, cursor) { 
+	    cursor.toArray(function(err, docs) { });
+	    // or, using a promise
+	    cursor.toArray().then(function(docs) { });
+	});
+    
 
 The callback specified in the `on` method will be called whenever *any* changes are made to the collection. This includes changes made as a result of inserting or modifying records as well as changes introduced during synchronization. This allows you to centralize all of your UI update code in a single method.
 
@@ -56,10 +62,26 @@ Initially, LowlaDB will support `find` with no query object or with a query obje
 
     todos.find({ completed:false }).toArray().then(function(docs) {});
 
-Support for richer queries will be added later, along with sorting.
+Support for richer queries will be added later.
 
 If you know you only require a single record, you can use `findOne` rather than `find` to return the object directly without needing to iterate a cursor.
 
+## Cursors ##
+
+The `Cursor` object provides methods to determine the iterable documents.  Each method returns a new instance of `Cursor`.
+
+The `sort` method creates a cursor that will order the documents on the given field.  Provide a positive value for ascending order, and a negative number for descending order.
+
+    todos.find().sort({ title: 1 }).toArray(...)
+
+The `limit` method creates a cursor that will return at most the given number of documents. 
+
+    todos.find().limit(3).toArray(...)
+    
+Since each method returns a new instance of `Cursor`, the methods can be chained.  The following both limits and sorts the resulting documents:
+
+    todos.find().sort({ title: 1}).limit(3).toArray(...)
+    
 ## Updating Objects ##
 You update objects using the `findAndModify` method. This takes a query object, subject to the same requirements as the `find` methods, and also an object to either replace the existing data or describe the modifications to be made to the existing object. For example
 
