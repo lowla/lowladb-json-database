@@ -31,7 +31,7 @@ var LowlaDB = (function(LowlaDB) {
       }
       else {
         SyncCoordinator.validateSpecialTypes(payload[i+1]);
-        promises.push(collection._updateIndexedDB(payload[++i]));
+        promises.push(collection._updateDocument(payload[++i]));
       }
       i++;
     }

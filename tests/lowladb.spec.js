@@ -330,6 +330,20 @@ describe('LowlaDB API', function() {
         });
     });
 
-    // TODO - test that findAndModify without ops will preserve the _id
+    it('preserves existing ids when performing full document updates', function() {
+      var docId;
+      return insertDocuments([{a:1}])
+        .then(function(docs) {
+          docId = docs[0]._id;
+          return coll.findAndModify({a:1}, {a:2,b:3});
+        })
+        .then(function() {
+          return coll.find().toArray();
+        })
+        .then(function(arr) {
+          arr.length.should.equal(1);
+          arr[0]._id.should.equal(docId);
+        });
+    });
   });
 });

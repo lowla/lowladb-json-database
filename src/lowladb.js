@@ -50,6 +50,9 @@ var LowlaDB = (function(LowlaDB) {
       }
     }
     if (!opMode) {
+      if (!operations.hasOwnProperty('_id') && obj.hasOwnProperty('_id')) {
+        operations._id = obj._id;
+      }
       return operations;
     }
     else {
@@ -135,7 +138,7 @@ var LowlaDB = (function(LowlaDB) {
     this.collectionName = collectionName;
   };
 
-  Collection.prototype._updateIndexedDB = function(obj) {
+  Collection.prototype._updateDocument = function(obj) {
     var coll = this;
     return new Promise(function(resolve, reject) {
       obj._id = obj._id || generateId();
@@ -150,7 +153,7 @@ var LowlaDB = (function(LowlaDB) {
   };
 
   Collection.prototype.insert = function(obj, callback) {
-    return this._updateIndexedDB(obj)
+    return this._updateDocument(obj)
       .then(function(savedObj) {
         if (callback) {
           callback(null, savedObj);
@@ -194,7 +197,7 @@ var LowlaDB = (function(LowlaDB) {
         }
 
         var obj = mutateObject(arr[0], operations);
-        return coll._updateIndexedDB(obj);
+        return coll._updateDocument(obj);
       });
   };
 
