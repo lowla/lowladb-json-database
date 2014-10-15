@@ -160,6 +160,27 @@ describe('LowlaDB API', function() {
         });
     });
 
+    it('can count the documents', function() {
+      return insertThreeDocuments().then(function() {
+        return coll.find().count();
+      })
+        .then(function(count) {
+          count.should.equal(3);
+          return coll.find({a:2}).count();
+        })
+        .then(function(count) {
+          count.should.equal(1);
+          return coll.find({}).limit(2).count();
+        })
+        .then(function(count) {
+          count.should.equal(2);
+          return coll.find().limit(20).count();
+        })
+        .then(function(count) {
+          count.should.equal(3);
+        });
+    });
+
     it('can remove a document', function() {
       var id1, id2, id3;
       return coll.insert({a: 1})
@@ -286,6 +307,27 @@ describe('LowlaDB API', function() {
           });
         })
         ;
+    });
+
+    it('can count the documents in a collection', function() {
+      return insertThreeDocuments().then(function() {
+        return coll.count();
+      })
+        .then(function(count) {
+          count.should.equal(3);
+          return coll.count({a:2});
+        })
+        .then(function(count) {
+          count.should.equal(1);
+          return coll.count({});
+        })
+        .then(function(count) {
+          count.should.equal(3);
+          return coll.count({z:5});
+        })
+        .then(function(count) {
+          count.should.equal(0);
+        });
     });
 
     // TODO - test that findAndModify without ops will preserve the _id
