@@ -3,8 +3,6 @@
  */
 
 describe('LowlaDB Sync', function() {
-  var coll, collTwo;
-
   beforeEach(function(done) {
     var req = indexedDB.deleteDatabase( "lowla" );
     req.onsuccess = function () {
@@ -16,15 +14,10 @@ describe('LowlaDB Sync', function() {
     };
   });
 
+  var coll = LowlaDB.collection('dbName', 'collectionOne');
+  var collTwo = LowlaDB.collection('dbName', 'collectionTwo');
   beforeEach(function() {
-    coll = LowlaDB.collection('dbName', 'collectionOne');
-    return coll.ready.then(function() {
-      collTwo = LowlaDB.collection('dbName', 'collectionTwo');
-      return collTwo.ready;
-    })
-      .then(function() {
-        LowlaDB.sync('http://lowla.io/', { pollFrequency: -1 });
-      });
+    LowlaDB.sync('http://lowla.io/', { pollFrequency: -1 });
   });
 
   afterEach(function() {

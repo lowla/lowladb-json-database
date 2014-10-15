@@ -5,8 +5,6 @@
 var LowlaDB = (function(LowlaDB) {
   'use strict';
 
-  var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
-
   var generateId = function() {
     /*jshint bitwise:false */
     var i, random;
@@ -105,37 +103,22 @@ var LowlaDB = (function(LowlaDB) {
   Cursor.prototype._applyFilter = function() {
     var cursor = this;
     var coll = this._collection;
-    return coll.ready.then(function(db) {
-      return new Promise(function(resolve, reject) {
+    return new Promise(function(resolve, reject) {
+      var data = [];
+      var clientIdPrefix = coll.dbName + '.' + coll.collectionName + '$';
 
-        var trans = db.transaction(["lowla"], "readwrite");
-        var store = trans.objectStore("lowla");
-
-        // Get everything in the store;
-        var keyRange = IDBKeyRange.lowerBound(0);
-        var cursorRequest = store.openCursor(keyRange);
-
-        var data = [ ];
-
-        var clientIdPrefix = coll.dbName + '.' + coll.collectionName + '$';
-
-        cursorRequest.onsuccess = function (e) {
-          var result = e.target.result;
-          if (!result) {
-            resolve(data);
-            return;
+      LowlaDB.Datastore.scanDocuments({
+        document: function(clientId, doc) {
+          if (clientId.indexOf(clientIdPrefix) === 0 && filterApplies(cursor._filter, doc)) {
+            data.push(doc);
           }
+        },
 
-          if (result.value.clientId.indexOf(clientIdPrefix) === 0 && filterApplies(cursor._filter, result.value.document)) {
-            data.push(result.value.document);
-          }
+        done: function() {
+          resolve(data);
+        },
 
-          result.continue();
-        };
-
-        cursorRequest.onerror = function (e) {
-          reject(e);
-        };
+        error: reject
       });
     })
       .then(function(data) {
@@ -254,72 +237,96 @@ var LowlaDB = (function(LowlaDB) {
     throw e;
   };
 
-  var Collection = function (dbName, collectionName) {
-    if (!indexedDB) {
-      throw Error("LowlaDB requires IndexedDB");
-    }
-
-    var collection = this;
-    this.dbName = dbName;
-    this.collectionName = collectionName;
-
-    var coll = this;
-    if (!Collection.ready) {
-      this.ready = Collection.ready = new Promise(function (resolve, reject) {
-        var request = indexedDB.open("lowla", 1);
-        request.onupgradeneeded = function (e) {
-          var db = e.target.result;
-
-          e.target.transaction.onerror = indexedDBOnError;
-
-          var store = db.createObjectStore("lowla",
-            {keyPath: "clientId"});
-        };
-
-        request.onsuccess = function (e) {
-          coll.db = e.target.result;
-          resolve(coll.db);
-        };
-
-        request.onerror = function (e) {
-          reject(e);
-        };
-      });
-    }
-    else {
-      this.ready = Collection.ready.then(function (db) {
-        coll.db = db;
-        return db;
-      });
-    }
+  var DB = function (dbName) {
+    this.name = dbName;
   };
 
-  Collection.ready = false;
+  DB.prototype.collection = function (collectionName) {
+    return new Collection(this.name, collectionName);
+  };
+
+  DB.prototype.collectionNames = function () {
+    var collection, options, callback;
+    var args = Array.prototype.slice.call(arguments, 0);
+    while (args.length > 0) {
+      var arg = args.pop();
+      if (arg instanceof Function) {
+        callback = arg;
+      }
+      else if (typeof(arg) === 'string') {
+        collection = arg;
+      }
+      else if (typeof(arg) === 'object') {
+        options = arg;
+      }
+    }
+
+    options = options || { namesOnly: false };
+    collection = collection || '';
+
+    var data = { };
+    var dbPrefix = this.name + '.' + collection;
+    return new Promise(function(resolve, reject) {
+      LowlaDB.Datastore.scanDocuments({
+        document: function(clientId) {
+          if (clientId.indexOf(dbPrefix) === 0) {
+            var dollar = clientId.indexOf('$');
+            var fullName = clientId.substring(0, dollar);
+            data[fullName] = true;
+          }
+
+        },
+        done: function() {
+          return resolve(data);
+        },
+        error: reject
+      });
+    })
+      .then(function(data) {
+        var answer = [];
+        for (var dbCollName in data) {
+          if (data.hasOwnProperty(dbCollName)) {
+            if (options.namesOnly) {
+              answer.push(dbCollName);
+            }
+            else {
+              answer.push({name: dbCollName});
+            }
+          }
+        }
+
+        return answer;
+      })
+      .then(function(answer) {
+        if (callback) {
+          callback(null, answer);
+        }
+        return answer;
+      }, function(err) {
+        if (callback) {
+          callback(err);
+        }
+        throw err;
+      });
+  };
+
+  var Collection = function (dbName, collectionName) {
+    this.dbName = dbName;
+    this.collectionName = collectionName;
+  };
 
   Collection.prototype._updateIndexedDB = function(obj) {
     var coll = this;
-    return this.ready.then(function(db) {
-      return new Promise(function(resolve, reject) {
-        obj._id = obj._id || generateId();
-        var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + obj._id;
-
-        var trans = db.transaction(["lowla"], "readwrite");
-        var store = trans.objectStore("lowla");
-        var request = store.put({
-          "clientId": lowlaID,
-          "document": obj
-        });
-
-        trans.oncomplete = function (e) {
-          resolve(obj);
-          notifyLive(coll);
-        };
-
-        request.onerror = function (e) {
-          reject(e);
-        };
+    return new Promise(function(resolve, reject) {
+      obj._id = obj._id || generateId();
+      var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + obj._id;
+      LowlaDB.Datastore.updateDocument(lowlaID, obj, resolve, reject);
+    })
+      .then(function(doc) {
+        notifyLive(coll);
+        return doc;
       });
-    });
+
   };
 
   Collection.prototype.insert = function(obj, callback) {
@@ -384,13 +391,10 @@ var LowlaDB = (function(LowlaDB) {
           return Promise.all(arr.map(function(obj) {
             return new Promise(function(resolve, reject) {
               var objId = coll.dbName + '.' + coll.collectionName + '$' + obj._id;
-              var request = coll.db.transaction(["lowla"], "readwrite").objectStore("lowla").delete(objId);
-              request.onsuccess = function(event) {
-                resolve(1);
-              };
-              request.onerror = function(event) {
-                reject(0);
-              };
+              LowlaDB.Datastore.deleteDocument(objId, {
+                done: function() { resolve(1); },
+                error: function() { reject(0); }
+              });
             });
           }))
             .then(function(deleted) {
@@ -402,6 +406,10 @@ var LowlaDB = (function(LowlaDB) {
             });
         });
       });
+  };
+
+  LowlaDB.db = function (dbName) {
+    return new DB(dbName);
   };
 
   LowlaDB.collection = function(dbName, collectionName) {
@@ -431,12 +439,7 @@ var LowlaDB = (function(LowlaDB) {
   };
 
   LowlaDB.close = function() {
-    if (Collection.ready) {
-      return Collection.ready.then(function(db) {
-        Collection.ready = false;
-        db.close();
-      });
-    }
+    LowlaDB.Datastore.close();
   };
 
   return LowlaDB;

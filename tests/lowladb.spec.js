@@ -21,16 +21,8 @@ describe('LowlaDB API', function() {
       };
     });
 
-    var coll = null;
-    var collTwo = null;
-
-    beforeEach(function() {
-      coll = LowlaDB.collection('dbName', 'collectionOne');
-      return coll.ready.then(function() {
-        collTwo = LowlaDB.collection('dbName', 'collectionTwo');
-        return collTwo.ready;
-      });
-    });
+    var coll = LowlaDB.collection('dbName', 'collectionOne');
+    var collTwo = LowlaDB.collection('dbName', 'collectionTwo');
 
     afterEach(function() {
       LowlaDB.close();
@@ -41,10 +33,6 @@ describe('LowlaDB API', function() {
       coll.insert.should.be.a('function');
       coll.find.should.be.a('function');
       coll.findAndModify.should.be.a('function');
-      return coll.ready
-        .then(function() {
-          should.exist(coll.db);
-        });
     });
 
     it('can create and retrieve documents', function() {
