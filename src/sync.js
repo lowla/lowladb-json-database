@@ -40,15 +40,45 @@ var LowlaDB = (function(LowlaDB) {
   };
 
   SyncCoordinator.prototype.processChanges = function(payload) {
+    var syncCoord = this;
     var ids = [];
     payload.atoms.map(function(atom) { ids.push(atom.id); });
     return LowlaDB.utils.getJSON(this.urls.pull, { ids: ids })
-      .then(this.processPull.bind(this));
+      .then(function(pullPayload) {
+        return syncCoord.processPull(pullPayload);
+      })
+      .then(function() {
+        return new Promise(function(resolve, reject) {
+          LowlaDB.Datastore.loadDocument("$metadata", {
+            document: function(doc) {
+              if (!doc) {
+                doc = {};
+              }
+              doc.sequence = payload.sequence;
+              LowlaDB.Datastore.updateDocument("$metadata", doc, function() {
+                resolve(payload.sequence)
+              }, reject);
+            }
+          });
+        });
+      })
   };
 
   SyncCoordinator.prototype.fetchChanges = function() {
-    return LowlaDB.utils.getJSON(this.urls.changes + '?seq=0')
-      .then(this.processChanges.bind(this));
+    var syncCoord = this;
+    return new Promise(function(resolve, reject) {
+      LowlaDB.Datastore.loadDocument("$metadata", {
+        document: resolve,
+        error: reject
+      })
+    })
+      .then(function(meta) {
+        var sequence = (meta && meta.sequence) ? meta.sequence : 0;
+        return LowlaDB.utils.getJSON(syncCoord.urls.changes + '?seq=' + sequence);
+      })
+      .then(function(payload) {
+        return syncCoord.processChanges(payload);
+      });
   };
 
   SyncCoordinator.prototype.pollForChanges = function() {

@@ -25,10 +25,10 @@ describe('LowlaDB Sync', function() {
   });
 
   var sandbox;
-  var server;
+  var getJSON;
   beforeEach(function() {
     sandbox = sinon.sandbox.create();
-    server = sandbox.useFakeXMLHttpRequest();
+    getJSON = sandbox.stub(LowlaDB.utils, 'getJSON');
   });
 
   afterEach(function() {
@@ -36,9 +36,13 @@ describe('LowlaDB Sync', function() {
   });
 
   it('requests changes from sequence 0', function() {
-    LowlaDB._syncCoordinator.fetchChanges();
-    server.requests.should.have.length(1);
-    server.requests[0].url.should.equal('http://lowla.io/_lowla/changes?seq=0');
+    getJSON.returns(Promise.resolve({}));
+    sandbox.stub(LowlaDB._syncCoordinator, 'processChanges').returns(Promise.resolve({}));
+    return LowlaDB._syncCoordinator.fetchChanges()
+      .then(function() {
+        getJSON.callCount.should.equal(1);
+        getJSON.getCall(0).should.have.been.calledWith('http://lowla.io/_lowla/changes?seq=0')
+      });
   });
 
   var makeChangesResponse = function() {
@@ -62,8 +66,8 @@ describe('LowlaDB Sync', function() {
 
   it('processes responses from the Syncer', function() {
     var processChanges = LowlaDB._syncCoordinator.processChanges = sandbox.stub();
+    getJSON.returns(Promise.resolve(makeChangesResponse().obj));
     var promise = LowlaDB._syncCoordinator.fetchChanges();
-    server.requests[0].respond(200, {'Content-type':'application/json'}, makeChangesResponse().json);
     return promise.then(function() {
       processChanges.callCount.should.equal(1);
       processChanges.getCall(0).should.have.been.calledWith({ atoms: [], sequence: 1});
@@ -71,11 +75,12 @@ describe('LowlaDB Sync', function() {
   });
 
   it('requests changes from Adapter', function() {
-    LowlaDB._syncCoordinator.processChanges(makeChangesResponse('dbName.collectionOne$1234').obj);
-    server.requests.should.have.length(1);
-    server.requests[0].url.should.equal('http://lowla.io/_lowla/pull');
-    server.requests[0].method.should.equal('POST');
-    JSON.parse(server.requests[0].requestBody).should.deep.equal({ ids: [ 'dbName.collectionOne$1234' ]});
+    getJSON.returns(Promise.resolve({}));
+    return LowlaDB._syncCoordinator.processChanges(makeChangesResponse('dbName.collectionOne$1234').obj)
+      .then(function() {
+        getJSON.callCount.should.equal(1);
+        getJSON.getCall(0).should.have.been.calledWith('http://lowla.io/_lowla/pull', { ids: [ 'dbName.collectionOne$1234' ]});
+      });
   });
 
   var makePullResponse = function() {
@@ -96,12 +101,13 @@ describe('LowlaDB Sync', function() {
 
   it('processes responses from the Adapter', function() {
     var pullResponse = makePullResponse({ _id: '1234', a: 1, b: 22, text: 'Received', _version: 1 });
+    getJSON.returns(Promise.resolve(pullResponse));
     var processPull = LowlaDB._syncCoordinator.processPull = sandbox.stub();
-    var promise = LowlaDB._syncCoordinator.processChanges({ atoms: [ 'dbName.collectionOne$1234' ], sequence: 1 });
-    server.requests[0].respond(200, {'Content-type': 'application/json'}, JSON.stringify(pullResponse));
-    return promise.then(function() {
+    var promise = LowlaDB._syncCoordinator.processChanges({ atoms: [ 'dbName.collectionOne$1234' ], sequence: 7 });
+    return promise.then(function(newSeq) {
       processPull.callCount.should.equal(1);
       processPull.getCall(0).should.have.been.calledWith(pullResponse);
+      newSeq.should.equal(7);
     });
   });
 
@@ -213,5 +219,6 @@ describe('LowlaDB Sync', function() {
       })
       .catch(done);
   });
+
 });
 

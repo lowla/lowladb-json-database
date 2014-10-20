@@ -25,8 +25,7 @@ var LowlaDB = (function(LowlaDB) {
 
           e.target.transaction.onerror = reject;
 
-          var store = db.createObjectStore("lowla",
-            {keyPath: "clientId"});
+          db.createObjectStore("lowla", {keyPath: "clientId"});
         };
 
         request.onsuccess = function (e) {
@@ -47,9 +46,9 @@ var LowlaDB = (function(LowlaDB) {
       if (typeof(docFn) === 'object') {
         doneFn = docFn.done || function () {
         };
+        errFn = docFn.error || function (err) { throw err; };
         docFn = docFn.document || function () {
         };
-        errFn = docFn.error || function (err) { throw err; };
       }
 
       var trans = db.transaction(["lowla"], "readwrite");
@@ -68,6 +67,36 @@ var LowlaDB = (function(LowlaDB) {
 
         docFn(result.value.clientId, result.value.document);
         result.continue();
+      };
+
+      cursorRequest.onerror = function (e) {
+        errFn(e);
+      };
+    });
+  };
+
+  Datastore.prototype.loadDocument = function(clientId, docFn, errFn) {
+    db().then(function(db) {
+      if (typeof(docFn) === 'object') {
+        errFn = docFn.error || function (err) { throw err; };
+        docFn = docFn.document || function () {
+        };
+      }
+
+      var trans = db.transaction(["lowla"], "readwrite");
+      var store = trans.objectStore("lowla");
+
+      var keyRange = IDBKeyRange.only(clientId);
+      var cursorRequest = store.openCursor(keyRange);
+
+      cursorRequest.onsuccess = function (e) {
+        var result = e.target.result;
+        if (!result) {
+          docFn(null);
+        }
+        else {
+          docFn(result.value.document);
+        }
       };
 
       cursorRequest.onerror = function (e) {
