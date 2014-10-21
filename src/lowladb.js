@@ -138,13 +138,41 @@ var LowlaDB = (function(LowlaDB) {
     this.collectionName = collectionName;
   };
 
-  Collection.prototype._updateDocument = function(obj) {
+  Collection.prototype._updateDocument = function(obj, flagEight) {
     var coll = this;
-    return new Promise(function(resolve, reject) {
-      obj._id = obj._id || generateId();
-      var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + obj._id;
-      LowlaDB.Datastore.updateDocument(lowlaID, obj, resolve, reject);
-    })
+    obj._id = obj._id || generateId();
+    var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + obj._id;
+
+    var answer;
+    if (!flagEight) {
+      answer = LowlaDB.utils.metaData()
+        .then(function(metaDoc) {
+          if (!metaDoc || !metaDoc.changes || !metaDoc.changes[lowlaID]) {
+            return new Promise(function(resolve, reject) {
+              LowlaDB.Datastore.loadDocument(lowlaID, resolve, reject);
+            })
+              .then(function(oldDoc) {
+                oldDoc = oldDoc || {};
+                return new Promise(function(resolve, reject) {
+                  metaDoc = metaDoc || { changes: {} };
+                  metaDoc.changes = metaDoc.changes || [];
+                  metaDoc.changes[lowlaID] = oldDoc;
+                  LowlaDB.Datastore.updateDocument("$metadata", metaDoc, resolve, reject);
+                });
+              });
+          }
+        });
+    }
+    else {
+      answer = Promise.resolve({});
+    }
+
+    return answer
+      .then(function() {
+        return new Promise(function(resolve, reject) {
+          LowlaDB.Datastore.updateDocument(lowlaID, obj, resolve, reject);
+        });
+      })
       .then(function(doc) {
         LowlaDB.Cursor.notifyLive(coll);
         return doc;
@@ -249,11 +277,17 @@ var LowlaDB = (function(LowlaDB) {
       return;
     }
 
-    return LowlaDB._syncCoordinator.fetchChanges().then(function () {
+    var pushPull = function() {
+      return LowlaDB._syncCoordinator.pushChanges()
+        .then(function() {
+          return LowlaDB._syncCoordinator.fetchChanges();
+        });
+    };
+
+    return pushPull().then(function () {
       if (options && 0 !== options.pollFrequency) {
         var pollFunc = function () {
-          LowlaDB._syncCoordinator.fetchChanges()
-            .then(function () {
+          pushPull().then(function () {
               setTimeout(pollFunc, options.pollFrequency);
             });
         };

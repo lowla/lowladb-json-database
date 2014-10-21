@@ -3,8 +3,11 @@
  */
 
 var LowlaDB = (function(LowlaDB) {
+  var keys;
 
   var SyncCoordinator = function(baseUrl) {
+    keys = LowlaDB.utils.keys;
+
     if (!baseUrl || !baseUrl.length) {
       throw Error('Invalid server URL for LowlaDB Sync');
     }
@@ -14,7 +17,8 @@ var LowlaDB = (function(LowlaDB) {
 
     this.urls = {
       changes: baseUrl + '_lowla/changes',
-      pull: baseUrl + '_lowla/pull'
+      pull: baseUrl + '_lowla/pull',
+      push: baseUrl + '_lowla/push'
     };
   };
 
@@ -31,7 +35,7 @@ var LowlaDB = (function(LowlaDB) {
       }
       else {
         SyncCoordinator.validateSpecialTypes(payload[i+1]);
-        promises.push(collection._updateDocument(payload[++i]));
+        promises.push(collection._updateDocument(payload[++i], true));
       }
       i++;
     }
@@ -56,12 +60,12 @@ var LowlaDB = (function(LowlaDB) {
               }
               doc.sequence = payload.sequence;
               LowlaDB.Datastore.updateDocument("$metadata", doc, function() {
-                resolve(payload.sequence)
+                resolve(payload.sequence);
               }, reject);
             }
           });
         });
-      })
+      });
   };
 
   SyncCoordinator.prototype.fetchChanges = function() {
@@ -70,7 +74,7 @@ var LowlaDB = (function(LowlaDB) {
       LowlaDB.Datastore.loadDocument("$metadata", {
         document: resolve,
         error: reject
-      })
+      });
     })
       .then(function(meta) {
         var sequence = (meta && meta.sequence) ? meta.sequence : 0;
@@ -138,6 +142,141 @@ var LowlaDB = (function(LowlaDB) {
     }
 
     return obj;
+  };
+
+  SyncCoordinator.prototype.collectPushData = function() {
+    return LowlaDB.utils.metaData().then(function(metaDoc) {
+      if (!metaDoc || !metaDoc.changes) {
+        return null;
+      }
+
+      return new Promise(function (resolve, reject) {
+        var docs = [];
+        LowlaDB.Datastore.scanDocuments(function(clientId, doc) {
+          if (metaDoc.changes.hasOwnProperty(clientId)) {
+            var oldDoc = metaDoc.changes[clientId];
+
+            var setOps = {};
+            var unsetOps = {};
+
+            for (var key in doc) {
+              if (!doc.hasOwnProperty(key) || key === "_id") {
+                continue;
+              }
+
+              if (JSON.stringify(doc[key]) !== JSON.stringify(oldDoc[key])) {
+                setOps[key] = doc[key];
+              }
+            }
+
+            for (var oldKey in oldDoc) {
+              if (!oldDoc.hasOwnProperty(oldKey) || key === "_id") {
+                continue;
+              }
+
+              if (!doc.hasOwnProperty(oldKey)) {
+                unsetOps[oldKey] = 1;
+              }
+            }
+
+            var ops = null;
+            if (0 !== keys(setOps).length) {
+              ops = { $set: setOps };
+            }
+            if (0 !== keys(unsetOps).length) {
+              (ops || (ops = {})).$unset = unsetOps;
+            }
+
+            if (ops) {
+              docs.push({
+                _lowla: {
+                  id: clientId
+                },
+                ops: ops
+              });
+            }
+          }
+        }, function() {
+          resolve(docs);
+        }, reject);
+      })
+        .then(function(docs) {
+          if (!docs || 0 === docs.length) {
+            return null;
+          }
+
+          return { documents: docs };
+        });
+    });
+  };
+
+  SyncCoordinator.prototype.processPushResponse = function(payload) {
+    var makeUpdateHandler = function(docId) {
+      return function() {
+        return docId;
+      };
+    };
+
+    var i = 0;
+    var promises = [];
+    while (i < payload.length) {
+      var dot = payload[i].clientNs.indexOf('.');
+      var dbName = payload[i].clientNs.substring(0, dot);
+      var collName = payload[i].clientNs.substring(dot + 1);
+      var collection = LowlaDB.collection(dbName, collName);
+      if (payload[i].deleted) {
+        //TODO
+      }
+      else {
+        var docId = payload[i].id;
+        var responseDoc = payload[++i];
+        SyncCoordinator.validateSpecialTypes(responseDoc);
+        var promise = collection._updateDocument(responseDoc, true)
+          .then(makeUpdateHandler(docId));
+        promises.push(promise);
+      }
+
+      i++;
+    }
+
+    return Promise.all(promises);
+  };
+
+  SyncCoordinator.prototype.clearPushData = function(ids) {
+    return LowlaDB.utils.metaData()
+      .then(function(metaData) {
+        if (!metaData || !metaData.changes) {
+          return;
+        }
+
+        if (ids && ids.forEach) {
+          ids.forEach(function(id) {
+            delete metaData.changes[id];
+          });
+        }
+        else if (ids && metaData.hasOwnProperty(ids)) {
+          delete metaData.changes[ids];
+        }
+        else if (!ids) {
+          delete metaData.changes;
+        }
+
+        return LowlaDB.utils.metaData(metaData);
+      });
+  };
+
+  SyncCoordinator.prototype.pushChanges = function() {
+    var syncCoord = this;
+    return this.collectPushData()
+      .then(function(payload) {
+        return LowlaDB.utils.getJSON(syncCoord.urls.push, payload);
+      })
+      .then(function(response) {
+        return syncCoord.processPushResponse(response);
+      })
+      .then(function(updatedIDs) {
+        return syncCoord.clearPushData(updatedIDs);
+      });
   };
 
   LowlaDB.SyncCoordinator = SyncCoordinator;

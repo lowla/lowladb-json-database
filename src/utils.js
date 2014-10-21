@@ -73,6 +73,34 @@ var LowlaDB = (function(LowlaDB) {
     return new Blob(byteArrays, {type: contentType});
   };
 
+  utils.metaData = function(newMeta) {
+    if (newMeta) {
+      return new Promise(function(resolve, reject) {
+        LowlaDB.Datastore.updateDocument("$metadata", newMeta, resolve, reject);
+      });
+    }
+    else {
+      return new Promise(function (resolve, reject) {
+        LowlaDB.Datastore.loadDocument("$metadata", resolve, reject);
+      });
+    }
+  };
+
+  utils.keys = function(obj) {
+    if (Object.keys) {
+      return Object.keys(obj);
+    }
+
+    var answer = [];
+    for (var i in obj) {
+      if (obj.hasOwnProperty(i)) {
+        answer.push(i);
+      }
+    }
+
+    return answer;
+  };
+
   LowlaDB.utils = utils;
   return LowlaDB;
 })(LowlaDB || {});
