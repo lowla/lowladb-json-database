@@ -33,8 +33,8 @@ jQuery(function ($) {
 	var App = {
 		init: function () {
       this.todos = LowlaDB.collection('lowlaSample', 'todos');
-      LowlaDB.sync('http://localhost:3000', { pollFrequency: 1000 });
-      this.todos.find({}).on(function(err, cursor) {
+      LowlaDB.sync('http://10.1.1.51:3000', { pollFrequency: 1000 });
+      this.todos.find({}).sort('title').on(function(err, cursor) {
         this.render(cursor);
       }.bind(this));
 
@@ -75,7 +75,7 @@ jQuery(function ($) {
 		render: function (cursor) {
       var self = this;
       if (!cursor) {
-        cursor = this.todos.find();
+        cursor = this.todos.find().sort('title');
       }
       cursor.toArray().then(function(todos) {
         self.$todoList.html(self.todoTemplate(todos));
