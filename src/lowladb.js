@@ -140,53 +140,83 @@ var LowlaDB = (function(LowlaDB) {
 
   Collection.prototype._updateDocument = function(obj, flagEight) {
     var coll = this;
+    var savedDoc = null;
+    return new Promise(function(resolve, reject) {
+      LowlaDB.Datastore.transact(doUpdate, resolve, reject);
+      function doUpdate(tx) {
+        coll._updateDocumentInTx(tx, obj, flagEight, function(doc) {
+          savedDoc = doc;
+        });
+      }
+    })
+      .then(function() {
+        return savedDoc;
+      });
+  };
+
+  Collection.prototype._updateDocumentInTx = function(tx, obj, flagEight, savedCallback) {
+    var coll = this;
     obj._id = obj._id || generateId();
     var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + obj._id;
 
-    var answer;
-    if (!flagEight) {
-      answer = LowlaDB.utils.metaData()
-        .then(function(metaDoc) {
-          if (!metaDoc || !metaDoc.changes || !metaDoc.changes[lowlaID]) {
-            return new Promise(function(resolve, reject) {
-              LowlaDB.Datastore.loadDocument(lowlaID, resolve, reject);
-            })
-              .then(function(oldDoc) {
-                oldDoc = oldDoc || {};
-                return new Promise(function(resolve, reject) {
-                  metaDoc = metaDoc || { changes: {} };
-                  metaDoc.changes = metaDoc.changes || [];
-                  metaDoc.changes[lowlaID] = oldDoc;
-                  LowlaDB.Datastore.updateDocument("$metadata", metaDoc, resolve, reject);
-                });
-              });
-          }
-        });
+    if (flagEight) {
+      saveOnly(tx);
     }
     else {
-      answer = Promise.resolve({});
+      updateWithMeta(tx);
     }
 
-    return answer
-      .then(function() {
-        return new Promise(function(resolve, reject) {
-          LowlaDB.Datastore.updateDocument(lowlaID, obj, resolve, reject);
-        });
-      })
-      .then(function(doc) {
-        LowlaDB.Cursor.notifyLive(coll);
-        return doc;
-      });
+    function updateWithMeta(tx) {
+      tx.load("$metadata", checkMeta);
+    }
 
+    function checkMeta(metaDoc, tx) {
+      if (!metaDoc || !metaDoc.changes || !metaDoc.changes[lowlaID]) {
+        tx.load(lowlaID, updateMetaChanges);
+      }
+      else {
+        tx.save(lowlaID, obj, objSaved);
+      }
+
+      function updateMetaChanges(oldDoc, tx) {
+        oldDoc = oldDoc || {};
+        metaDoc = metaDoc || { changes: {} };
+        metaDoc.changes = metaDoc.changes || {};
+        metaDoc.changes[lowlaID] = oldDoc;
+        tx.save("$metadata", metaDoc, saveOnly);
+      }
+    }
+
+    function saveOnly(metaDoc, tx) {
+      if (tx === undefined) {
+        tx = metaDoc;
+      }
+      tx.save(lowlaID, obj, objSaved);
+    }
+
+    function objSaved(savedDoc) {
+      savedCallback(savedDoc);
+      LowlaDB.Cursor.notifyLive(coll);
+    }
   };
 
   Collection.prototype.insert = function(obj, callback) {
-    return this._updateDocument(obj)
-      .then(function(savedObj) {
+    var coll = this;
+    var savedDoc = null;
+    return new Promise(function(resolve, reject) {
+      LowlaDB.Datastore.transact(doInsert, resolve, reject);
+
+      function doInsert(tx) {
+        coll._updateDocumentInTx(tx, obj, false, function(doc) {
+          savedDoc = doc;
+        });
+      }
+    })
+      .then(function() {
         if (callback) {
-          callback(null, savedObj);
+          callback(null, savedDoc);
         }
-        return savedObj;
+        return savedDoc;
       })
       .catch(function(e) {
         if (callback) {
@@ -215,17 +245,29 @@ var LowlaDB = (function(LowlaDB) {
     return LowlaDB.Cursor(this, filter);
   };
 
-
   Collection.prototype.findAndModify = function(filter, operations, callback) {
     var coll = this;
-    return this.find(filter).toArray()
-      .then(function(arr) {
-        if (0 === arr.length) {
-          return null;
+    var savedObj = null;
+    return new Promise(function(resolve, reject) {
+      LowlaDB.Datastore.transact(doFind, resolve, reject);
+
+      function doFind(tx) {
+        coll.find(filter)._applyFilterInTx(tx, updateDoc);
+      }
+
+      function updateDoc(docArr, tx) {
+        if (0 === docArr.length) {
+          return;
         }
 
-        var obj = mutateObject(arr[0], operations);
-        return coll._updateDocument(obj);
+        var obj = mutateObject(docArr[0], operations);
+        coll._updateDocumentInTx(tx, obj, false, function(obj) {
+          savedObj = obj;
+        }, reject);
+      }
+    })
+      .then(function() {
+        return savedObj;
       });
   };
 

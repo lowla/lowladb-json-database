@@ -52,62 +52,69 @@ var LowlaDB = (function(LowlaDB) {
     }
   };
 
+  Cursor.prototype._applyFilterInTx = function(tx, docsCallback) {
+    var data = [];
+    var coll = this._collection;
+    var clientIdPrefix = coll.dbName + '.' + coll.collectionName + '$';
+    var cursor = this;
+
+    tx.scan(collectDocs, processDocs);
+
+    function collectDocs(clientId, doc) {
+      if (clientId.indexOf(clientIdPrefix) === 0 && filterApplies(cursor._filter, doc)) {
+        data.push(doc);
+      }
+    }
+
+    function processDocs() {
+      data = data.map(LowlaDB.SyncCoordinator.convertSpecialTypes);
+      if (cursor._options.sort) {
+        sortData();
+      }
+
+      if (cursor._options.limit) {
+        data = data.slice(0, cursor._options.limit);
+      }
+
+      docsCallback(data, tx);
+    }
+
+    function sortData() {
+      var sort = cursor._options.sort;
+      data.sort(function(a,b) {
+        if (typeof(sort) == 'string') {
+          return docCompareFunc(sort, a, b);
+        }
+        else if (sort instanceof Array) {
+          for (var i = 0; i < sort.length; i += 2) {
+            var answer = docCompareFunc(sort[i], a, b);
+            if (sort[i+1] < 0) {
+              answer = -answer;
+            }
+            if (answer) {
+              return answer;
+            }
+          }
+
+          return 0;
+        }
+      });
+    }
+  };
+
   Cursor.prototype._applyFilter = function() {
     var cursor = this;
-    var coll = this._collection;
+    var answer;
     return new Promise(function(resolve, reject) {
-      var data = [];
-      var clientIdPrefix = coll.dbName + '.' + coll.collectionName + '$';
-
-      LowlaDB.Datastore.scanDocuments({
-        document: function(clientId, doc) {
-          if (clientId.indexOf(clientIdPrefix) === 0 && filterApplies(cursor._filter, doc)) {
-            data.push(doc);
-          }
-        },
-
-        done: function() {
-          resolve(data);
-        },
-
-        error: reject
-      });
-    })
-      .then(function(data) {
-        return data.map(LowlaDB.SyncCoordinator.convertSpecialTypes);
-      })
-      .then(function(data) {
-        if (!cursor._options.sort) {
-          return data;
-        }
-
-        var sort = cursor._options.sort;
-        data.sort(function(a,b) {
-          if (typeof(sort) == 'string') {
-            return docCompareFunc(sort, a, b);
-          }
-          else if (sort instanceof Array) {
-            for (var i = 0; i < sort.length; i += 2) {
-              var answer = docCompareFunc(sort[i], a, b);
-              if (sort[i+1] < 0) {
-                answer = -answer;
-              }
-              if (answer) {
-                return answer;
-              }
-            }
-
-            return 0;
-          }
+      LowlaDB.Datastore.transact(applyFilter, resolve, reject);
+      function applyFilter(tx) {
+        cursor._applyFilterInTx(tx, function(docs) {
+          answer = docs;
         });
-
-        return data;
-      })
-      .then(function(data) {
-        if (!cursor._options.limit) {
-          return data;
-        }
-        return data.slice(0, cursor._options.limit);
+      }
+    })
+      .then(function() {
+        return answer;
       });
   };
 

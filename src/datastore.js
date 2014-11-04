@@ -75,6 +75,81 @@ var LowlaDB = (function(LowlaDB) {
     });
   };
 
+  Datastore.prototype.transact = function(callback, doneCallback, errCallback) {
+    errCallback = errCallback || function(){};
+
+    db().then(function(db) {
+      var tx = db.transaction(["lowla"], "readwrite");
+      tx.oncomplete = function(evt) {
+        doneCallback();
+      };
+      tx.onerror = function(e) {
+        errCallback(e);
+      };
+
+      var txWrapper = {
+        load: loadInTx,
+        save: saveInTx,
+        scan: scanInTx
+      };
+
+      callback(txWrapper);
+      ////////////////////
+
+      function loadInTx(clientId, loadCallback, loadErrCallback) {
+        loadErrCallback = loadErrCallback || errCallback;
+        var store = tx.objectStore("lowla");
+        var keyRange = IDBKeyRange.only(clientId);
+        var request = store.openCursor(keyRange);
+        request.onsuccess = function (evt) {
+          var doc = evt.target.result ? evt.target.result.value.document : null;
+          loadCallback(doc, txWrapper);
+        };
+        request.onerror = loadErrCallback;
+      }
+
+      function saveInTx(clientId, doc, saveCallback, saveErrCallback) {
+        saveErrCallback = saveErrCallback || errCallback;
+        var store = tx.objectStore("lowla");
+        var request = store.put({
+          "clientId": clientId,
+          "document": doc
+        });
+
+        request.onsuccess = function (e) {
+          saveCallback(doc, txWrapper);
+        };
+
+        request.onerror = function (e) {
+          saveErrCallback(e);
+        };
+      }
+
+      function scanInTx(scanCallback, scanDoneCallback, scanErrCallback) {
+        scanErrCallback = scanErrCallback || errCallback;
+        var store = tx.objectStore("lowla");
+        var keyRange = IDBKeyRange.lowerBound(0);
+        var request = store.openCursor(keyRange);
+
+        request.onsuccess = function (e) {
+          var result = e.target.result;
+          if (!result) {
+            scanDoneCallback(txWrapper);
+            return;
+          }
+
+          scanCallback(result.value.clientId, result.value.document, txWrapper);
+          result.continue();
+        };
+
+        request.onerror = function (e) {
+          scanErrCallback(e);
+        };
+      }
+    });
+
+  };
+
   Datastore.prototype.loadDocument = function(clientId, docFn, errFn) {
     db().then(function(db) {
       if (typeof(docFn) === 'object') {
