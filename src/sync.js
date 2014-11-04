@@ -197,7 +197,8 @@ var LowlaDB = (function(LowlaDB) {
             if (ops) {
               docs.push({
                 _lowla: {
-                  id: clientId
+                  id: clientId,
+                  version: oldDoc._version
                 },
                 ops: ops
               });
