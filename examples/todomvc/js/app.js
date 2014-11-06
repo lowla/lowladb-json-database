@@ -32,11 +32,26 @@ jQuery(function ($) {
 
 	var App = {
 		init: function () {
+      LowlaDB.on('pullBegin', function() {
+        console.log("Pull beginning");
+      });
+      LowlaDB.on('pushBegin', function() {
+        console.log("Push beginning");
+      });
+
+      LowlaDB.on('pullEnd', function() {
+        console.log("Pull ended");
+      });
+      LowlaDB.on('pushEnd', function() {
+        console.log("Push ended");
+      });
+
       this.todos = LowlaDB.collection('lowlaSample', 'todos');
       LowlaDB.sync('http://localhost:3000', { pollFrequency: 500 });
       this.todos.find({}).sort('title').on(function(err, cursor) {
         this.render(cursor);
       }.bind(this));
+
 
 			this.cacheElements();
 			this.bindEvents();
@@ -77,7 +92,7 @@ jQuery(function ($) {
       if (!cursor) {
         cursor = this.todos.find().sort('title');
       }
-      cursor.toArray().then(function(todos) {
+      cursor.showPending().toArray().then(function(todos) {
         self.$todoList.html(self.todoTemplate(todos));
         self.$main.toggle(todos.length > 0);
         self.$toggleAll.prop('checked', self.getActiveTodos().length === 0);

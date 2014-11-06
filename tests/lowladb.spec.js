@@ -88,6 +88,18 @@ describe('LowlaDB API', function() {
         });
     });
 
+    it('sets modified documents as pending sync', function() {
+      return coll.insert({a: 1})
+        .then(function(obj) {
+          return coll.find().showPending().toArray();
+        })
+        .then(function(arr) {
+          should.exist(arr);
+          arr.length.should.equal(1);
+          arr[0].$pending.should.equal(true);
+        });
+    });
+
     var insertDocuments = function(docs) {
       return Promise.all(docs.map(function(doc) {
         return coll.insert(doc);

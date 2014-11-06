@@ -77,7 +77,13 @@ The `sort` method creates a cursor that will order the documents on the given fi
 The `limit` method creates a cursor that will return at most the given number of documents. 
 
     todos.find().limit(3).toArray(...)
-    
+
+The `showPending` method will inject a field named `$pending` into each object returned by the cursor.  `$pending` will be `true` if the object has outgoing changes that have not yet been sent to the server.
+
+	todos.find().showPending().each(function(doc) {
+		// doc.$pending will be true/false based on sync status
+	});
+
 Since each method returns a new instance of `Cursor`, the methods can be chained.  The following both limits and sorts the resulting documents:
 
     todos.find().sort({ title: 1}).limit(3).toArray(...)
@@ -104,4 +110,28 @@ You can add a callback or promise to confirm that the remove was successful.
 You initiate sync with the `sync` method. This will perform an incremental, bi-directional sync with the specified server and, optionally, leave the sync channel open for real-time updates. If you choose to enable real-time sync, LowlaDB will call your `on` callbacks for any active queries whenever changes are made to a collection.
 
     LowlaDB.sync('syncServer', { /* options e.g. authentication, leave channel open */ });
-	
+
+## Sync Events ##
+LowlaDB provides a simple event emitter interface to notify your app of sync operations as they occur using the `on` method.
+
+	LowlaDB.on('syncBegin', showBusy);
+	LowlaDB.on('syncEnd', hideBusy);
+
+To stop receiving events, use the `off` method:
+
+	LowlaDB.off('syncBegin', showBusy);
+	LowlaDB.off('syncEnd', showBusy);
+	// Alternatively, to disable all events:
+	LowlaDB.off();
+
+There are three pairs of events fired during sync:
+
+### syncBegin / syncEnd ###
+These events are emitted at the beginning and end of a polled sync operation, even if no documents actually need to sync.
+
+### pushBegin / pushEnd ###
+`pushBegin` will be emitted when LowlaDB has determined there are outgoing changes that need to be sent to the server and is preparing to send them.  `pushEnd` will be emitted after all outgoing changes have been sent.
+
+### pullBegin / pullEnd ###
+`pullBegin` will be emitted when LowlaDB has received information from the Syncer that documents need to be retrieved from the server.  `pullEnd` will be emitted after LowlaDB has requested and received those documents.
+

@@ -51,6 +51,7 @@ var LowlaDB = (function(LowlaDB) {
       return Promise.resolve();
     }
 
+    LowlaDB.emit('pullBegin');
     return LowlaDB.utils.getJSON(this.urls.pull, { ids: ids })
       .then(function(pullPayload) {
         return syncCoord.processPull(pullPayload);
@@ -69,6 +70,13 @@ var LowlaDB = (function(LowlaDB) {
             }
           });
         });
+      })
+      .then(function(arg) {
+        LowlaDB.emit('pullEnd');
+        return arg;
+      }, function(err) {
+        LowlaDB.emit('pullEnd');
+        throw err;
       });
   };
 
@@ -281,13 +289,22 @@ var LowlaDB = (function(LowlaDB) {
           return;
         }
 
+        LowlaDB.emit('pushBegin');
         return LowlaDB.utils.getJSON(syncCoord.urls.push, payload)
           .then(function (response) {
             return syncCoord.processPushResponse(response);
           })
           .then(function (updatedIDs) {
             return syncCoord.clearPushData(updatedIDs);
+          })
+          .then(function(arg) {
+            LowlaDB.emit('pushEnd');
+            return arg;
+          }, function(err) {
+            LowlaDB.emit('pushEnd');
+            throw err;
           });
+
       })
       .catch(function(err) {
         console.log('Unable to push changes: ' + err);

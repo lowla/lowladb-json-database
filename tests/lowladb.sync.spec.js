@@ -53,7 +53,6 @@ describe('LowlaDB Sync', function() {
 
 
   describe('Pull', function() {
-
     it('requests changes from sequence 0', function () {
       getJSON.returns(Promise.resolve({}));
       sandbox.stub(LowlaDB._syncCoordinator, 'processChanges').returns(Promise.resolve({}));
@@ -353,6 +352,55 @@ describe('LowlaDB Sync', function() {
         .then(function(payload) {
           should.not.exist(payload);
         });
+    });
+  });
+
+  describe('Events', function() {
+    it('fires events during sync', function(done) {
+      var syncBegin = sandbox.stub();
+      var syncEnd = sandbox.stub();
+      var pushBegin = sandbox.stub();
+      var pushEnd = sandbox.stub();
+      var pullBegin = sandbox.stub();
+      var pullEnd = sandbox.stub();
+      LowlaDB.on('syncBegin', syncBegin);
+      LowlaDB.on('syncEnd', syncEnd);
+      LowlaDB.on('pushBegin', pushBegin);
+      LowlaDB.on('pushEnd', pushEnd);
+      LowlaDB.on('pullBegin', pullBegin);
+      LowlaDB.on('pullEnd', pullEnd);
+      LowlaDB.on('syncEnd', function() {
+        try {
+          syncBegin.callCount.should.equal(1);
+          pushBegin.callCount.should.equal(1);
+          pushEnd.callCount.should.equal(1);
+          pullBegin.callCount.should.equal(1);
+          pullEnd.callCount.should.equal(1);
+          syncEnd.callCount.should.equal(1);
+
+          syncBegin.should.be.calledBefore(pushBegin);
+          pushBegin.should.be.calledBefore(pushEnd);
+          pushEnd.should.be.calledBefore(pullBegin);
+          pullBegin.should.be.calledBefore(pullEnd);
+          pullEnd.should.be.calledBefore(syncEnd);
+
+          done();
+        }
+        catch (e) {
+          done(e);
+        }
+      });
+
+      coll.insert({a: 1})
+        .then(function(obj) {
+          var objId = obj._id;
+          getJSON.onFirstCall().returns(Promise.resolve(makeAdapterResponse({_id: objId, a: 1})));
+          getJSON.onSecondCall().returns(Promise.resolve({sequence: 2, atoms: [ 'dbName.TestCollection$' + objId ]}));
+          getJSON.onThirdCall().returns(Promise.resolve(makeAdapterResponse({_id: objId, a: 1})));
+
+          LowlaDB.sync('http://lowla.io', { pollFrequency: 0 });
+        })
+        .catch(done);
     });
   });
 });

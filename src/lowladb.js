@@ -30,6 +30,9 @@ var LowlaDB = (function(LowlaDB) {
           opMode = true;
           for (var j in operations[i]) {
             if (operations[i].hasOwnProperty(j)) {
+              if (j.indexOf('$') === 0) {
+                throw Error('The dollar ($) prefixed field ' + j + ' is not valid');
+              }
               obj[j] = operations[i][j];
             }
           }
@@ -41,6 +44,9 @@ var LowlaDB = (function(LowlaDB) {
               delete obj[j2];
             }
           }
+        }
+        else if (i.indexOf('$') === 0) {
+          throw Error('Unknown modifier: ' + i);
         }
         else {
           if (opMode) {
@@ -320,9 +326,17 @@ var LowlaDB = (function(LowlaDB) {
     }
 
     var pushPull = function() {
+      LowlaDB.emit('syncBegin');
       return LowlaDB._syncCoordinator.pushChanges()
         .then(function() {
           return LowlaDB._syncCoordinator.fetchChanges();
+        })
+        .then(function(arg) {
+          LowlaDB.emit('syncEnd');
+          return arg;
+        }, function(err) {
+          LowlaDB.emit('syncEnd');
+          throw err;
         });
     };
 
@@ -341,7 +355,45 @@ var LowlaDB = (function(LowlaDB) {
     });
   };
 
+  var lowlaEvents = {};
+  LowlaDB.on = function(eventName, callback) {
+    if (lowlaEvents[eventName]) {
+      lowlaEvents[eventName].push(callback);
+    }
+    else {
+      lowlaEvents[eventName] = [ callback ];
+    }
+  };
+
+  LowlaDB.off = function(eventName, callback) {
+    if (!callback) {
+      if (!eventName) {
+        lowlaEvents = {};
+      }
+      else {
+        delete lowlaEvents[eventName];
+      }
+    }
+    else if (lowlaEvents[eventName]) {
+      var index = lowlaEvents[eventName].indexOf(callback);
+      if (-1 !== index) {
+        lowlaEvents[eventName].splice(index, 1);
+      }
+    }
+  };
+
+  LowlaDB.emit = function(eventName) {
+    if (lowlaEvents[eventName]) {
+      lowlaEvents[eventName].forEach(function(listener) {
+        listener.apply(this);
+      });
+    }
+  };
+
+
   LowlaDB.close = function() {
+    LowlaDB.Cursor.off();
+    LowlaDB.off();
     LowlaDB.Datastore.close();
   };
 

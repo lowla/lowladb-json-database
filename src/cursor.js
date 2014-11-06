@@ -13,7 +13,8 @@ var LowlaDB = (function(LowlaDB) {
     this._filter = filter;
     this._options = {
       sort: null,
-      limit: 0
+      limit: 0,
+      showPending: false
     };
 
     for (var i in options) {
@@ -76,6 +77,21 @@ var LowlaDB = (function(LowlaDB) {
         data = data.slice(0, cursor._options.limit);
       }
 
+      if (data.length && cursor._options.showPending) {
+        tx.load("$metadata", loadMetaForPending);
+      }
+      else {
+        docsCallback(data, tx);
+      }
+    }
+
+    function loadMetaForPending(metaDoc, tx) {
+      if (metaDoc && metaDoc.changes) {
+        data.forEach(function(doc) {
+          doc.$pending = metaDoc.changes.hasOwnProperty(clientIdPrefix + doc._id);
+        });
+      }
+
       docsCallback(data, tx);
     }
 
@@ -130,6 +146,9 @@ var LowlaDB = (function(LowlaDB) {
     });
   };
 
+  Cursor.off = function() {
+    liveCursors = {};
+  };
 
   Cursor.prototype.on = function (callback) {
     var coll = this._collection;
@@ -165,6 +184,10 @@ var LowlaDB = (function(LowlaDB) {
     return this.cloneWithOptions({ sort: sort });
   };
 
+  Cursor.prototype.showPending = function() {
+    return this.cloneWithOptions({ showPending: true });
+  };
+
   Cursor.prototype.each = function(callback) {
     if (!callback) {
       return;
@@ -177,7 +200,6 @@ var LowlaDB = (function(LowlaDB) {
   };
 
   Cursor.prototype.toArray = function(callback) {
-    var _this = this;
     return this._applyFilter()
       .then(function(filtered) {
         if (callback) {
