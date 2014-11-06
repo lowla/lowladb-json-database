@@ -40,7 +40,8 @@ module.exports = function(grunt) {
 
     karma: {
       options: {
-        configFile: 'karma.conf.js'
+        configFile: 'karma.conf.js',
+        browsers: [ grunt.option('browsers') || 'Chrome' ]
       },
 
       once: {
