@@ -17,7 +17,9 @@ module.exports = function(config) {
     files: [
       'node_modules/sinon/pkg/sinon.js',
       'node_modules/sinon-chai/lib/sinon-chai.js',
+      'node_modules/chai-as-promised/lib/chai-as-promised.js',
       'src/*.js',
+      'tests/utils.js',
       'tests/**/*.spec.js'
     ],
 
@@ -30,7 +32,7 @@ module.exports = function(config) {
     // preprocess matching files before serving them to the browser
     // available preprocessors: https://npmjs.org/browse/keyword/karma-preprocessor
     preprocessors: {
-      'src/lowladb.js': ['coverage']
+      'src/*.js': ['coverage']
     },
 
 

@@ -81,7 +81,12 @@ var LowlaDB = (function(LowlaDB) {
         tx.load("$metadata", loadMetaForPending);
       }
       else {
-        docsCallback(data, tx);
+        try {
+          docsCallback(data, tx);
+        }
+        catch (err) {
+          tx.errCb(err);
+        }
       }
     }
 

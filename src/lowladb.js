@@ -45,8 +45,8 @@ var LowlaDB = (function(LowlaDB) {
             }
           }
         }
-        else if (i.indexOf('$') === 0) {
-          throw Error('Unknown modifier: ' + i);
+        else if (i.substring(0, 1) === '$') {
+          throw Error(opMode ? 'Unknown modifier: ' + i : 'The dollar ($) prefixed field ' + i + ' is not valid');
         }
         else {
           if (opMode) {
@@ -210,6 +210,12 @@ var LowlaDB = (function(LowlaDB) {
     var coll = this;
     var savedDoc = null;
     return new Promise(function(resolve, reject) {
+      LowlaDB.utils.keys(obj).forEach(function(key) {
+        if (key.substring(0, 1) === '$') {
+          reject(Error('The dollar ($) prefixed field ' + key + ' is not valid'));
+        }
+      });
+
       LowlaDB.Datastore.transact(doInsert, resolve, reject);
 
       function doInsert(tx) {

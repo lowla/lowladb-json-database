@@ -88,12 +88,18 @@ var LowlaDB = (function(LowlaDB) {
       };
 
       var txWrapper = {
+        errCb: errCallback,
         load: loadInTx,
         save: saveInTx,
         scan: scanInTx
       };
 
-      callback(txWrapper);
+      try {
+        callback(txWrapper);
+      }
+      catch (err) {
+        errCallback(err);
+      }
       ////////////////////
 
       function loadInTx(clientId, loadCallback, loadErrCallback) {
