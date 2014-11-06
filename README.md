@@ -1,4 +1,7 @@
 # LowlaDB #
+
+[![Build Status](https://travis-ci.org/lowla/lowladb.svg)](https://travis-ci.org/lowla/lowladb)
+
 LowlaDB is a database for mobile applications. It syncs data from a wide variety of backends down to the device so that applications can always use data that is stored locally. That makes applications *fast* because data is always close by and *reliable* because they never have to worry about signal strength or the availability of WiFi.
 
 The initial release of LowlaDB is a pure javascript implementation that runs on either IndexedDB or WebSQL. It works well for small numbers of records and provides a rapid development cycle. If your application needs to scale to larger databases, a later release of LowlaDB will add a specialized datastore implementaton designed to run in Cordova. Web applications built with LowlaDB will run in Cordova with no code changes required and will automatically detect and use the improved datastore. The Cordova implementation will also add features not possible in the browser such as overnight syncing.
