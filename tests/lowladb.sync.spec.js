@@ -15,7 +15,6 @@ describe('LowlaDB Sync', function() {
   });
 
   var coll = LowlaDB.collection('dbName', 'collectionOne');
-  var collTwo = LowlaDB.collection('dbName', 'collectionTwo');
   beforeEach(function() {
     LowlaDB.sync('http://lowla.io/', { pollFrequency: -1 });
   });
@@ -37,10 +36,18 @@ describe('LowlaDB Sync', function() {
 
   var makeAdapterResponse = function () {
     var args = Array.prototype.slice.call(arguments);
+    if (args[0] instanceof Array) {
+      args = args[0];
+    }
+
     var answer = [];
     args.map(function (obj) {
+      var objId = obj._id;
+      if (-1 === objId.indexOf('$')) {
+        objId = 'dbName.collectionOne$' + objId;
+      }
       answer.push({
-        id: 'dbName.collectionOne$' + obj._id,
+        id: objId,
         clientNs: 'dbName.collectionOne',
         deleted: obj._deleted ? true : false
       });
@@ -401,6 +408,86 @@ describe('LowlaDB Sync', function() {
           LowlaDB.sync('http://lowla.io', { pollFrequency: 0 });
         })
         .catch(done);
+    });
+  });
+
+  describe('Chunking', function() {
+    it('pushes ten documents at a time', function() {
+      var promises = [];
+      for (var a = 1; a <= 25; a++) {
+        promises.push(coll.insert({a: a}));
+      }
+
+      var seenIDs = [];
+      LowlaDB.utils.getJSON.restore();
+      getJSON = sandbox.stub(LowlaDB.utils, 'getJSON', function(url, payload) {
+        var docs = [];
+        payload.documents.forEach(function(doc) {
+          docs.push({_id: doc._lowla.id});
+          if (-1 === seenIDs.indexOf(doc._lowla.id)) {
+            seenIDs.push(doc._lowla.id);
+          }
+        });
+        return Promise.resolve(makeAdapterResponse(docs));
+      });
+
+      return Promise.all(promises)
+        .then(function() {
+          return LowlaDB._syncCoordinator.pushChanges();
+        })
+        .then(function() {
+          getJSON.callCount.should.equal(3);
+          getJSON.args[0][1].documents.should.have.length(10);
+          getJSON.args[1][1].documents.should.have.length(10);
+          getJSON.args[2][1].documents.should.have.length(5);
+          seenIDs.should.have.length(25);
+        });
+    });
+
+    it('only attempts to send a document once per push', function() {
+      var promises = [];
+      for (var a = 1; a <= 15; a++) {
+        promises.push(coll.insert({a: a}));
+      }
+
+      var seenIDs = [];
+      var skipID = null;
+      LowlaDB.utils.getJSON.restore();
+      getJSON = sandbox.stub(LowlaDB.utils, 'getJSON', function (url, payload) {
+        var docs = [];
+        payload.documents.forEach(function (doc) {
+          if (-1 === seenIDs.indexOf(doc._lowla.id)) {
+            seenIDs.push(doc._lowla.id);
+          }
+
+          if (doc._lowla.id === skipID) {
+            return;
+          }
+
+          docs.push({_id: doc._lowla.id});
+        });
+        return Promise.resolve(makeAdapterResponse(docs));
+      });
+
+      return Promise.all(promises)
+        .then(function (docs) {
+          // Skip the second document
+          skipID = 'dbName.collectionOne$' + docs[1]._id;
+          return LowlaDB._syncCoordinator.pushChanges();
+        })
+        .then(function () {
+          getJSON.callCount.should.equal(2);
+          getJSON.args[0][1].documents.should.have.length(10);
+          getJSON.args[1][1].documents.should.have.length(5);
+
+          getJSON.reset();
+          return LowlaDB._syncCoordinator.pushChanges();
+        })
+        .then(function() {
+          getJSON.callCount.should.equal(1);
+          getJSON.args[0][1].documents.should.have.length(1);
+          getJSON.args[0][1].documents[0]._lowla.id.should.equal(skipID);
+        });
     });
   });
 });

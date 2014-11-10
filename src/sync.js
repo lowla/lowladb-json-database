@@ -159,7 +159,8 @@ var LowlaDB = (function(LowlaDB) {
     return obj;
   };
 
-  SyncCoordinator.prototype.collectPushData = function() {
+  SyncCoordinator.prototype.collectPushData = function(alreadySeen) {
+    alreadySeen = alreadySeen || {};
     return LowlaDB.utils.metaData().then(function(metaDoc) {
       if (!metaDoc || !metaDoc.changes) {
         return null;
@@ -167,9 +168,14 @@ var LowlaDB = (function(LowlaDB) {
 
       return new Promise(function (resolve, reject) {
         var docs = [];
-        LowlaDB.Datastore.scanDocuments(function(clientId, doc) {
-          if (metaDoc.changes.hasOwnProperty(clientId)) {
-            var oldDoc = metaDoc.changes[clientId];
+        LowlaDB.Datastore.scanDocuments(function(lowlaId, doc) {
+          if (docs.length >= 10 || alreadySeen.hasOwnProperty(lowlaId)) {
+            return;
+          }
+          alreadySeen[lowlaId] = true;
+
+          if (metaDoc.changes.hasOwnProperty(lowlaId)) {
+            var oldDoc = metaDoc.changes[lowlaId];
 
             var setOps = {};
             var unsetOps = {};
@@ -205,7 +211,7 @@ var LowlaDB = (function(LowlaDB) {
             if (ops) {
               docs.push({
                 _lowla: {
-                  id: clientId,
+                  id: lowlaId,
                   version: oldDoc._version
                 },
                 ops: ops
@@ -283,20 +289,34 @@ var LowlaDB = (function(LowlaDB) {
 
   SyncCoordinator.prototype.pushChanges = function() {
     var syncCoord = this;
-    return this.collectPushData()
+    var alreadySeen = {};
+
+    function processPushData(pushPayload) {
+      if (!pushPayload) {
+        return Promise.resolve();
+      }
+
+      return LowlaDB.utils.getJSON(syncCoord.urls.push, pushPayload)
+        .then(function(response) {
+          return syncCoord.processPushResponse(response);
+        })
+        .then(function(updatedIDs) {
+          return syncCoord.clearPushData(updatedIDs);
+        })
+        .then(function() {
+          return syncCoord.collectPushData(alreadySeen);
+        })
+        .then(processPushData);
+    }
+
+    return this.collectPushData(alreadySeen)
       .then(function(payload) {
         if (!payload) {
           return;
         }
 
         LowlaDB.emit('pushBegin');
-        return LowlaDB.utils.getJSON(syncCoord.urls.push, payload)
-          .then(function (response) {
-            return syncCoord.processPushResponse(response);
-          })
-          .then(function (updatedIDs) {
-            return syncCoord.clearPushData(updatedIDs);
-          })
+        return processPushData(payload)
           .then(function(arg) {
             LowlaDB.emit('pushEnd');
             return arg;
