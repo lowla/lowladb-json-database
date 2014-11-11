@@ -91,7 +91,8 @@ var LowlaDB = (function(LowlaDB) {
         errCb: errCallback,
         load: loadInTx,
         save: saveInTx,
-        scan: scanInTx
+        scan: scanInTx,
+        remove: removeInTx
       };
 
       try {
@@ -123,7 +124,9 @@ var LowlaDB = (function(LowlaDB) {
         });
 
         request.onsuccess = function (e) {
-          saveCallback(doc, txWrapper);
+          if (saveCallback) {
+            saveCallback(doc, txWrapper);
+          }
         };
 
         request.onerror = function (e) {
@@ -151,6 +154,17 @@ var LowlaDB = (function(LowlaDB) {
         request.onerror = function (e) {
           scanErrCallback(e);
         };
+      }
+
+      function removeInTx(lowlaId, removeDoneCallback, removeErrCallback) {
+        removeErrCallback = removeErrCallback || errCallback;
+        var request = tx.objectStore("lowla").delete(lowlaId);
+        request.onsuccess = function() {
+          if (removeDoneCallback) {
+            removeDoneCallback();
+          }
+        };
+        request.onerror = removeErrCallback;
       }
     });
 

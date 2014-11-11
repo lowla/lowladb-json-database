@@ -32,16 +32,40 @@ var LowlaDB = (function(LowlaDB) {
       var collection = LowlaDB.collection(dbName, collName);
       if (payload[i].deleted) {
         dot = payload[i].id.indexOf('$');
-        promises.push(collection.remove({ _id: payload[i].id.substring(dot + 1) }));
+        promises.push(updateIfUnchanged(payload[i].id));
       }
       else {
         SyncCoordinator.validateSpecialTypes(payload[i+1]);
-        promises.push(collection._updateDocument(payload[++i], true));
+        promises.push(updateIfUnchanged(payload[i].id, payload[++i]));
       }
       i++;
     }
 
     return Promise.all(promises);
+
+    function updateIfUnchanged(lowlaId, doc) {
+      return new Promise(function(resolve, reject) {
+        LowlaDB.Datastore.transact(txFn, resolve, reject);
+
+        function txFn(tx) {
+          tx.load("$metadata", checkMeta);
+        }
+
+        function checkMeta(metaDoc, tx) {
+          if (metaDoc && metaDoc.changes && metaDoc.changes.hasOwnProperty(lowlaId)) {
+            resolve();
+          }
+          else {
+            if (doc) {
+              tx.save(lowlaId, doc);
+            }
+            else {
+              tx.remove(lowlaId);
+            }
+          }
+        }
+      });
+    }
   };
 
   SyncCoordinator.prototype.processChanges = function(payload) {

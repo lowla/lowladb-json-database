@@ -102,6 +102,7 @@ var LowlaDB = (function(LowlaDB) {
 
   function _updateDocumentInTx(tx, obj, flagEight, savedCallback) {
     /*jshint validthis:true */
+    savedCallback = savedCallback || function(){};
     var coll = this;
     obj._id = obj._id || generateId();
     var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + obj._id;
