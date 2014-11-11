@@ -244,6 +244,17 @@ var LowlaDB = (function(LowlaDB) {
             }
           }
         }, function() {
+          if (docs.length >= 10) {
+            resolve(docs);
+            return;
+          }
+
+          LowlaDB.utils.keys(metaDoc.changes).forEach(function(lowlaID) {
+            if (!alreadySeen.hasOwnProperty(lowlaID)) {
+              docs.push({ _lowla: { id: lowlaID, version: metaDoc.changes[lowlaID]._version, deleted: true } });
+            }
+          });
+
           resolve(docs);
         }, reject);
       })
@@ -272,7 +283,8 @@ var LowlaDB = (function(LowlaDB) {
       var collName = payload[i].clientNs.substring(dot + 1);
       var collection = LowlaDB.collection(dbName, collName);
       if (payload[i].deleted) {
-        //TODO
+        promises.push(collection._removeDocument(payload[i].id, true)
+          .then(makeUpdateHandler(payload[i].id)));
       }
       else {
         var docId = payload[i].id;

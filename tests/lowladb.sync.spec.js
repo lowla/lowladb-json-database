@@ -373,6 +373,25 @@ describe('LowlaDB Sync', function() {
         });
     });
 
+    it('can compute payload for deleted documents', function() {
+      return coll.insert({_id: '1234', a: 1, _version: 2})
+        .then(function() {
+          return LowlaDB._syncCoordinator.clearPushData();
+        })
+        .then(function() {
+          return coll.remove({_id: '1234'});
+        })
+        .then(function() {
+          return LowlaDB._syncCoordinator.collectPushData();
+        })
+        .then(function(payload) {
+          payload.documents.should.have.length(1);
+          payload.documents[0]._lowla.id.should.equal('dbName.collectionOne$1234');
+          payload.documents[0]._lowla.version.should.equal(2);
+          payload.documents[0]._lowla.deleted.should.equal(true);
+        });
+    });
+
     it('can process a push response from adapter', function() {
       var pushResponse = makeAdapterResponse({_id: '1234', a: 2, b: 5 });
       return LowlaDB._syncCoordinator.processPushResponse(pushResponse)
@@ -384,6 +403,25 @@ describe('LowlaDB Sync', function() {
         .then(function(arr) {
           arr.should.have.length(1);
           arr[0]._id.should.equal('1234');
+        });
+    });
+
+    it('can process a delete in push response', function() {
+      return coll.insert({_id: 'deleteFromPush', a: 1})
+        .then(function() {
+          var pushResponse = makeAdapterResponse({_id: 'deleteFromPush', _deleted: true, _version: 2});
+          getJSON.returns(Promise.resolve(pushResponse));
+          return LowlaDB._syncCoordinator.pushChanges();
+        })
+        .then(function() {
+          return coll.find({}).toArray();
+        })
+        .then(function(arr) {
+          arr.should.have.length(0);
+          return LowlaDB._syncCoordinator.collectPushData([]);
+        })
+        .then(function(payload) {
+          should.not.exist(payload);
         });
     });
 

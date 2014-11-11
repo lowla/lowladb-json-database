@@ -14,6 +14,8 @@ var LowlaDB = (function(LowlaDB) {
   // Internal API
   Collection.prototype._updateDocument = _updateDocument;
   Collection.prototype._updateDocumentInTx = _updateDocumentInTx;
+  Collection.prototype._removeDocument = _removeDocument;
+  Collection.prototype._removeDocumentInTx = _removeDocumentInTx;
 
   return LowlaDB;
   ///////////////
@@ -111,28 +113,7 @@ var LowlaDB = (function(LowlaDB) {
       saveOnly(tx);
     }
     else {
-      updateWithMeta(tx);
-    }
-
-    function updateWithMeta(tx) {
-      tx.load("$metadata", checkMeta);
-    }
-
-    function checkMeta(metaDoc, tx) {
-      if (!metaDoc || !metaDoc.changes || !metaDoc.changes[lowlaID]) {
-        tx.load(lowlaID, updateMetaChanges);
-      }
-      else {
-        tx.save(lowlaID, obj, objSaved);
-      }
-
-      function updateMetaChanges(oldDoc, tx) {
-        oldDoc = oldDoc || {};
-        metaDoc = metaDoc || { changes: {} };
-        metaDoc.changes = metaDoc.changes || {};
-        metaDoc.changes[lowlaID] = oldDoc;
-        tx.save("$metadata", metaDoc, saveOnly);
-      }
+      updateWithMeta(tx, lowlaID, saveOnly);
     }
 
     function saveOnly(metaDoc, tx) {
@@ -145,6 +126,59 @@ var LowlaDB = (function(LowlaDB) {
     function objSaved(savedDoc) {
       savedCallback(savedDoc);
       LowlaDB.Cursor.notifyLive(coll);
+    }
+  }
+
+  function _removeDocument(lowlaID, flagEight) {
+    /*jshint validthis:true */
+    var coll = this;
+    return new Promise(function(resolve, reject) {
+      LowlaDB.Datastore.transact(doUpdate, resolve, reject);
+      function doUpdate(tx) {
+        coll._removeDocumentInTx(tx, lowlaID, flagEight);
+      }
+    });
+  }
+
+  function _removeDocumentInTx(tx, lowlaID, flagEight, removedCallback) {
+    removedCallback = removedCallback || function(){};
+    if (flagEight) {
+      removeOnly(tx);
+    }
+    else {
+      updateWithMeta(tx, lowlaID, removeOnly);
+    }
+
+    function removeOnly(metaDoc, tx) {
+      if (tx === undefined) {
+        tx = metaDoc;
+      }
+      tx.remove(lowlaID, objRemoved);
+    }
+
+    function objRemoved() {
+      removedCallback();
+    }
+  }
+
+  function updateWithMeta(tx, lowlaID, nextFn) {
+    tx.load("$metadata", checkMeta);
+
+    function checkMeta(metaDoc, tx) {
+      if (!metaDoc || !metaDoc.changes || !metaDoc.changes[lowlaID]) {
+        tx.load(lowlaID, updateMetaChanges);
+      }
+      else {
+        nextFn(metaDoc, tx);
+      }
+
+      function updateMetaChanges(oldDoc, tx) {
+        oldDoc = oldDoc || {};
+        metaDoc = metaDoc || {changes: {}};
+        metaDoc.changes = metaDoc.changes || {};
+        metaDoc.changes[lowlaID] = oldDoc;
+        tx.save("$metadata", metaDoc, nextFn);
+      }
     }
   }
 
@@ -250,29 +284,28 @@ var LowlaDB = (function(LowlaDB) {
     var coll = this;
     return this.find(filter).toArray()
       .then(function(arr) {
-        return new Promise(function(resolve, reject) {
+        var countRemoved = 0;
+        return new Promise(function (resolve, reject) {
           if (0 === arr.length) {
             resolve(0);
             return;
           }
 
-          return Promise.all(arr.map(function(obj) {
-            return new Promise(function(resolve, reject) {
-              var objId = coll.dbName + '.' + coll.collectionName + '$' + obj._id;
-              LowlaDB.Datastore.deleteDocument(objId, {
-                done: function() { resolve(1); },
-                error: function() { reject(0); }
+          LowlaDB.Datastore.transact(txFn, resolve, reject);
+
+          function txFn(tx) {
+            arr.map(function (doc) {
+              var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + doc._id;
+              coll._removeDocumentInTx(tx, lowlaID, false, function () {
+                countRemoved = countRemoved + 1;
               });
             });
-          }))
-            .then(function(deleted) {
-              resolve(deleted.length);
-              LowlaDB.Cursor.notifyLive(coll);
-            })
-            .catch(function(err) {
-              reject(err);
-            });
-        });
+          }
+        })
+          .then(function () {
+            LowlaDB.Cursor.notifyLive(coll);
+            return countRemoved;
+          });
       });
   }
 
