@@ -30,13 +30,18 @@ LowlaDB stores regular Javascript objects. To add an object to a collection, you
 
 The actual insert may be asynchronous. If you need to verify that the object was saved without error or perform another action once the save is complete, you can either provide a callback
 
-    todos.insert(todo, function(err, records){});
+    todos.insert(todo, function(err, doc){});
 
 or use a promise
 
-    todos.insert(todo).then(function(records){}, function(err){});
+    todos.insert(todo).then(function(doc){}, function(err){});
 
 All objects must have a unique identifier property, named `_id`. LowlaDB will create one for you if you try to insert an object without one.
+
+You may also pass an array of objects to insert.  The result will be an array of the inserted documents:
+
+	var newTodos = [ { title: "Action One" }, { title: "Action Two" } ];
+	todos.insert(newTodos).then(function(arrDocs){});
 
 ## Retrieving Objects ##
 You retrieve objects using the `find` method. This takes a query object that acts as a selector for the objects to be returned. The `find` method returns a `Cursor` object that you can iterate or convert to an array.

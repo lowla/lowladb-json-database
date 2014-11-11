@@ -1,7 +1,8 @@
 var testUtils = (function() {
   var service = {
     setUp: setUp,
-    tearDown: tearDown
+    tearDown: tearDown,
+    cb: makeCb
   };
   return service;
 
@@ -18,5 +19,17 @@ var testUtils = (function() {
 
   function tearDown() {
     LowlaDB.close();
+  }
+
+  function makeCb(done, fn) {
+    return function(err, obj) {
+      try {
+        fn(err, obj);
+        done();
+      }
+      catch (e) {
+        done(e);
+      }
+    }
   }
 })();

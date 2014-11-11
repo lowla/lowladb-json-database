@@ -101,6 +101,10 @@ var LowlaDB = (function(LowlaDB) {
     return answer;
   };
 
+  utils.isArray = function(obj) {
+    return (obj instanceof Array);
+  };
+
   LowlaDB.utils = utils;
   return LowlaDB;
 })(LowlaDB || {});

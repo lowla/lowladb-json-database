@@ -147,26 +147,34 @@ var LowlaDB = (function(LowlaDB) {
     }
   }
 
-  function insert(obj, callback) {
+  function insert(arg, callback) {
     /*jshint validthis:true */
     var coll = this;
-    var savedDoc = null;
+    var savedDoc = [];
     return new Promise(function(resolve, reject) {
-      LowlaDB.utils.keys(obj).forEach(function(key) {
-        if (key.substring(0, 1) === '$') {
-          reject(Error('The dollar ($) prefixed field ' + key + ' is not valid'));
-        }
+      var docs = LowlaDB.utils.isArray(arg) ? arg : [ arg ];
+      docs.forEach(function(doc) {
+        LowlaDB.utils.keys(doc).forEach(function(key) {
+          if (key.substring(0, 1) === '$') {
+            reject(Error('The dollar ($) prefixed field ' + key + ' is not valid'));
+          }
+        });
       });
 
       LowlaDB.Datastore.transact(doInsert, resolve, reject);
 
       function doInsert(tx) {
-        coll._updateDocumentInTx(tx, obj, false, function(doc) {
-          savedDoc = doc;
+        docs.forEach(function(doc) {
+          coll._updateDocumentInTx(tx, doc, false, function (saved) {
+            savedDoc.push(saved);
+          });
         });
       }
     })
       .then(function() {
+        if (!LowlaDB.utils.isArray(arg)) {
+          savedDoc = savedDoc.length ? savedDoc[0] : null;
+        }
         if (callback) {
           callback(null, savedDoc);
         }
@@ -224,7 +232,15 @@ var LowlaDB = (function(LowlaDB) {
       }
     })
       .then(function() {
+        if (callback) {
+          callback(null, savedObj);
+        }
         return savedObj;
+      }, function(err) {
+        if (callback) {
+          callback(err);
+        }
+        throw err;
       });
   }
 
