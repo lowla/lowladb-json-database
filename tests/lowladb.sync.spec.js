@@ -134,6 +134,29 @@ describe('LowlaDB Sync', function() {
         });
     });
 
+    it('deletes documents based on pull response', function() {
+      var pullResponse = makeAdapterResponse( {_id: '1234', a: 1,  _version: 1});
+      return LowlaDB._syncCoordinator.processPull(pullResponse)
+        .then(function() {
+          return coll.find().toArray();
+        })
+        .then(function(arr) {
+          arr.should.have.length(1);
+          pullResponse = makeAdapterResponse( {_id: '1234', _deleted: true, _version: 2});
+          return LowlaDB._syncCoordinator.processPull(pullResponse);
+        })
+        .then(function() {
+          return coll.find().toArray();
+        })
+        .then(function(arr) {
+          arr.should.have.length(0);
+          return LowlaDB._syncCoordinator.collectPushData([]);
+        })
+        .then(function(payload) {
+          should.not.exist(payload);
+        })
+    });
+
     it('does not store push data for pull responses', function() {
       var pullResponse = makeAdapterResponse({ _id: '1234', a: 1, b: 22, text: 'Received', _version: 1 });
       return LowlaDB._syncCoordinator.processPull(pullResponse)

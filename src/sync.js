@@ -31,7 +31,8 @@ var LowlaDB = (function(LowlaDB) {
       var collName = payload[i].clientNs.substring(dot + 1);
       var collection = LowlaDB.collection(dbName, collName);
       if (payload[i].deleted) {
-        //TODO
+        dot = payload[i].id.indexOf('$');
+        promises.push(collection.remove({ _id: payload[i].id.substring(dot + 1) }));
       }
       else {
         SyncCoordinator.validateSpecialTypes(payload[i+1]);
