@@ -154,7 +154,7 @@ describe('LowlaDB Sync', function() {
         })
         .then(function(payload) {
           should.not.exist(payload);
-        })
+        });
     });
 
     it('does not store push data for pull responses', function() {
