@@ -199,11 +199,16 @@ var LowlaDB = (function(LowlaDB) {
       LowlaDB.Datastore.transact(doInsert, resolve, reject);
 
       function doInsert(tx) {
-        docs.forEach(function(doc) {
-          coll._updateDocumentInTx(tx, doc, false, function (saved) {
-            savedDoc.push(saved);
-          });
-        });
+        var curInsert = 0;
+        coll._updateDocumentInTx(tx, docs[curInsert], false, nextDoc);
+
+        function nextDoc(saved) {
+          savedDoc.push(saved);
+          ++curInsert;
+          if (curInsert < docs.length) {
+            coll._updateDocumentInTx(tx, docs[curInsert], false, nextDoc);
+          }
+        }
       }
     })
       .then(function() {

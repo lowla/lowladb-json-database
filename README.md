@@ -92,9 +92,13 @@ The above are shorthand for `count` on the `Cursor` object:
 ## Cursors ##
 The `Cursor` object provides methods to determine the iterable documents.  Each method returns a new instance of `Cursor`.
 
-The `sort` method creates a cursor that will order the documents on the given field.  Provide a positive value for ascending order, and a negative number for descending order.
+The `sort` method creates a cursor that will order the documents on a given field or an array of fields.  Provide a positive value for ascending order, and a negative number for descending order.
 
-    todos.find().sort({ title: 1 }).toArray(...)
+    todos.find().sort('title').toArray(...)
+    todos.find().sort([['title', 1]]).toArray(...) // same as above
+    todos.find().sort([['title', -1]]).toArray(...) // descending
+    todos.find().sort([['title', -1], 'complete']).toArray(...) // descending title, ascending complete
+    todos.find().sort([['title', -1], ['complete', 1]]).toArray(...) // same as above
 
 The `limit` method creates a cursor that will return at most the given number of documents. 
 

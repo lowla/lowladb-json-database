@@ -132,17 +132,28 @@ var LowlaDB = (function(LowlaDB) {
           return docCompareFunc(sort, a, b);
         }
         else if (sort instanceof Array) {
-          for (var i = 0; i < sort.length; i += 2) {
-            var answer = docCompareFunc(sort[i], a, b);
-            if (sort[i+1] < 0) {
+          var answer = 0;
+
+          sort.every(function(criterion) {
+            var field, order;
+            if (criterion instanceof Array) {
+              field = criterion[0];
+              order = criterion.length > 0 ? criterion[1] : 1;
+            }
+            else {
+              field = criterion;
+              order = 1;
+            }
+
+            answer = docCompareFunc(field, a, b);
+            if (order < 0) {
               answer = -answer;
             }
-            if (answer) {
-              return answer;
-            }
-          }
 
-          return 0;
+            return answer === 0;
+          });
+
+          return answer;
         }
       });
     }
@@ -212,9 +223,6 @@ var LowlaDB = (function(LowlaDB) {
 
   function sort(keyOrList) {
     /* jshint validthis:true */
-    if (keyOrList instanceof Array && keyOrList.length % 2) {
-      throw Error('Invalid sort array, must be pairs');
-    }
     return this.cloneWithOptions({ sort: keyOrList });
   }
 
@@ -229,15 +237,25 @@ var LowlaDB = (function(LowlaDB) {
       return;
     }
 
-    var data = this._applyFilter();
-    data.forEach(function(doc) {
-      callback(null, doc);
-    });
+    try {
+      this._applyFilter().then(function (arr) {
+        arr.forEach(function (doc) {
+          callback(null, doc);
+        });
+      });
+    }
+    catch (e) {
+      callback(e);
+    }
   }
 
   function toArray(callback) {
     /* jshint validthis:true */
-    return this._applyFilter()
+    var cursor = this;
+    return Promise.resolve()
+      .then(function() {
+        return cursor._applyFilter()
+      })
       .then(function(filtered) {
         if (callback) {
           callback(null, filtered);
