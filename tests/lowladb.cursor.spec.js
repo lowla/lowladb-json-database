@@ -114,8 +114,8 @@ describe('LowlaDB Cursor', function() {
         catch (e) {
           done(e);
         }
-      })
-    })
+      });
+    });
   });
 
   describe('sort()', function() {
@@ -211,8 +211,7 @@ describe('LowlaDB Cursor', function() {
           arr[0].a.should.equal(3);
         });
     });
-
-  })
+  });
 
   describe('showPending()', function() {
     it('sets modified documents as pending sync', function() {
@@ -253,7 +252,7 @@ describe('LowlaDB Cursor', function() {
         })
         .then(function(count) {
           count.should.equal(3);
-        })
+        });
     });
 
     it('provides count via callback', function(done) {

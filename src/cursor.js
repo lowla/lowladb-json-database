@@ -254,7 +254,7 @@ var LowlaDB = (function(LowlaDB) {
     var cursor = this;
     return Promise.resolve()
       .then(function() {
-        return cursor._applyFilter()
+        return cursor._applyFilter();
       })
       .then(function(filtered) {
         if (callback) {
