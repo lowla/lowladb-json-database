@@ -112,7 +112,7 @@ The `showPending` method will inject a field named `$pending` into each object r
 
 Since each method returns a new instance of `Cursor`, the methods can be chained.  The following both limits and sorts the resulting documents:
 
-    todos.find().sort({ title: 1}).limit(3).toArray(...)
+    todos.find().sort('title').limit(3).toArray(...)
     
 ## Updating Objects ##
 You update objects using the `findAndModify` method. This takes a query object, subject to the same requirements as the `find` methods, and also an object to either replace the existing data or describe the modifications to be made to the existing object. For example
