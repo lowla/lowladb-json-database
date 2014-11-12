@@ -3,8 +3,32 @@
  */
 
 var LowlaDB = (function(LowlaDB) {
+  'use strict';
+  var liveCursors = {};
 
-  var Cursor = function(collection, filter, options) {
+  // Public API
+  LowlaDB.Cursor = Cursor;
+
+  Cursor.prototype.count = count;
+  Cursor.prototype.each = each;
+  Cursor.prototype.limit = limit;
+  Cursor.prototype.sort = sort;
+  Cursor.prototype.showPending = showPending;
+  Cursor.prototype.toArray = toArray;
+
+  Cursor.prototype.on = on;
+  Cursor.off = off;
+  Cursor.notifyLive = notifyLive;
+  Cursor.prototype.cloneWithOptions = cloneWithOptions;
+
+  // Private API
+  Cursor.prototype._applyFilter = _applyFilter;
+  Cursor.prototype._applyFilterInTx = _applyFilterInTx;
+
+  return LowlaDB;
+  ///////////////
+
+  function Cursor(collection, filter, options) {
     if (!(this instanceof Cursor)) {
       return new Cursor(collection, filter, options);
     }
@@ -22,9 +46,9 @@ var LowlaDB = (function(LowlaDB) {
         this._options[i] = options[i];
       }
     }
-  };
+  }
 
-  var filterApplies = function(filter, doc) {
+  function filterApplies(filter, doc) {
     for (var i in filter) {
       if (filter.hasOwnProperty(i)) {
         if (!doc.hasOwnProperty(i) || filter[i] !== doc[i]) {
@@ -34,9 +58,9 @@ var LowlaDB = (function(LowlaDB) {
     }
 
     return true;
-  };
+  }
 
-  var docCompareFunc = function(sort, a, b) {
+  function docCompareFunc(sort, a, b) {
     if (a.hasOwnProperty(sort)) {
       if (!b.hasOwnProperty(sort)) {
         return 1;
@@ -51,9 +75,10 @@ var LowlaDB = (function(LowlaDB) {
       }
       return -1;
     }
-  };
+  }
 
-  Cursor.prototype._applyFilterInTx = function(tx, docsCallback) {
+  function _applyFilterInTx(tx, docsCallback) {
+    /* jshint validthis:true */
     var data = [];
     var coll = this._collection;
     var clientIdPrefix = coll.dbName + '.' + coll.collectionName + '$';
@@ -103,7 +128,7 @@ var LowlaDB = (function(LowlaDB) {
     function sortData() {
       var sort = cursor._options.sort;
       data.sort(function(a,b) {
-        if (typeof(sort) == 'string') {
+        if (typeof(sort) === 'string') {
           return docCompareFunc(sort, a, b);
         }
         else if (sort instanceof Array) {
@@ -121,9 +146,10 @@ var LowlaDB = (function(LowlaDB) {
         }
       });
     }
-  };
+  }
 
-  Cursor.prototype._applyFilter = function() {
+  function _applyFilter() {
+    /* jshint validthis:true */
     var cursor = this;
     var answer;
     return new Promise(function(resolve, reject) {
@@ -137,10 +163,9 @@ var LowlaDB = (function(LowlaDB) {
       .then(function() {
         return answer;
       });
-  };
+  }
 
-  var liveCursors = {};
-  Cursor.notifyLive = function (coll) {
+  function notifyLive(coll) {
     var key = coll.dbName + '.' + coll.collectionName;
     if (!liveCursors[key]) {
       return;
@@ -149,13 +174,14 @@ var LowlaDB = (function(LowlaDB) {
     liveCursors[key].forEach(function (watcher) {
       watcher.callback(null, watcher.cursor);
     });
-  };
+  }
 
-  Cursor.off = function() {
+  function off() {
     liveCursors = {};
-  };
+  }
 
-  Cursor.prototype.on = function (callback) {
+  function on(callback) {
+    /* jshint validthis:true */
     var coll = this._collection;
     var key = coll.dbName + '.' + coll.collectionName;
     if (!liveCursors[key]) {
@@ -164,9 +190,10 @@ var LowlaDB = (function(LowlaDB) {
 
     liveCursors[key].push({ cursor: this, callback: callback });
     callback(null, this);
-  };
+  }
 
-  Cursor.prototype.cloneWithOptions = function(options) {
+  function cloneWithOptions(options) {
+    /* jshint validthis:true */
     var answer = new Cursor(this._collection, this._filter);
     answer._options = this._options;
     for (var i in options) {
@@ -176,24 +203,28 @@ var LowlaDB = (function(LowlaDB) {
     }
 
     return answer;
-  };
+  }
 
-  Cursor.prototype.limit = function(amount) {
+  function limit(amount) {
+    /* jshint validthis:true */
     return this.cloneWithOptions({ limit: amount });
-  };
+  }
 
-  Cursor.prototype.sort = function(sort) {
-    if (sort instanceof Array && sort.length % 2) {
+  function sort(keyOrList) {
+    /* jshint validthis:true */
+    if (keyOrList instanceof Array && keyOrList.length % 2) {
       throw Error('Invalid sort array, must be pairs');
     }
-    return this.cloneWithOptions({ sort: sort });
-  };
+    return this.cloneWithOptions({ sort: keyOrList });
+  }
 
-  Cursor.prototype.showPending = function() {
+  function showPending() {
+    /* jshint validthis:true */
     return this.cloneWithOptions({ showPending: true });
-  };
+  }
 
-  Cursor.prototype.each = function(callback) {
+  function each(callback) {
+    /* jshint validthis:true */
     if (!callback) {
       return;
     }
@@ -202,9 +233,10 @@ var LowlaDB = (function(LowlaDB) {
     data.forEach(function(doc) {
       callback(null, doc);
     });
-  };
+  }
 
-  Cursor.prototype.toArray = function(callback) {
+  function toArray(callback) {
+    /* jshint validthis:true */
     return this._applyFilter()
       .then(function(filtered) {
         if (callback) {
@@ -217,9 +249,10 @@ var LowlaDB = (function(LowlaDB) {
         }
         throw err;
       });
-  };
+  }
 
-  Cursor.prototype.count = function(applySkipLimit, callback) {
+  function count(applySkipLimit, callback) {
+    /* jshint validthis:true */
     if (typeof(applySkipLimit) === 'function') {
       callback = applySkipLimit;
       applySkipLimit = false;
@@ -241,9 +274,6 @@ var LowlaDB = (function(LowlaDB) {
       }
       throw err;
     });
-  };
-
-  LowlaDB.Cursor = Cursor;
-  return LowlaDB;
+  }
 
 })(LowlaDB || {});
