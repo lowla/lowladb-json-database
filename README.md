@@ -54,7 +54,7 @@ You retrieve objects using the `find` method. This takes a query object that act
 	
 	// Or, using a promise
 	todos.find().toArray().then(function(docs) { }, function(err));
-	
+
 LowlaDB also supports real-time updating where it will monitor the collection for changes and automatically notify you when the query results may have changed.
 	
 	todos.find().on(function(err, cursor) { 
@@ -74,8 +74,22 @@ Support for richer queries will be added later.
 
 If you know you only require a single record, you can use `findOne` rather than `find` to return the object directly without needing to iterate a cursor.
 
-## Cursors ##
+## Counting Objects ##
+You can retrieve the number of documents in the collection via `count`:
 
+	// All documents
+	todos.count().then(function(numOfDocs) {});
+	todos.count(function(numOfDocs) {});
+
+	// Some documents
+	todos.count({completed: true}).then(function(numCompleted) {});
+	todos.count({completed: true}, function(numCompleted) {});
+
+The above are shorthand for `count` on the `Cursor` object:
+
+	todos.find({completed: true}).count().then(function(numCompleted) {});
+
+## Cursors ##
 The `Cursor` object provides methods to determine the iterable documents.  Each method returns a new instance of `Cursor`.
 
 The `sort` method creates a cursor that will order the documents on the given field.  Provide a positive value for ascending order, and a negative number for descending order.
