@@ -220,7 +220,17 @@ var LowlaDB = (function(LowlaDB) {
   };
 
   Cursor.prototype.count = function(applySkipLimit, callback) {
-    return this.toArray().then(function(arr) {
+    if (typeof(applySkipLimit) === 'function') {
+      callback = applySkipLimit;
+      applySkipLimit = false;
+    }
+
+    var cursor = this;
+    if (!applySkipLimit) {
+      cursor = this.cloneWithOptions({skip: 0, limit: 0});
+    }
+
+    return cursor.toArray().then(function(arr) {
       if (callback) {
         callback(null, arr.length);
       }

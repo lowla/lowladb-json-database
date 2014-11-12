@@ -71,23 +71,6 @@ describe('LowlaDB API', function() {
         });
     });
 
-    it('can find and modify a document', function() {
-      return coll.insert({a: 1})
-        .then(function(obj) {
-          return coll.findAndModify({_id: obj._id}, {$set: { a: 2}} );
-        })
-        .then(function(newObj) {
-          newObj.a.should.equal(2);
-        })
-        .then(function() {
-          return coll.find().toArray();
-        })
-        .then(function(arr) {
-          arr.should.have.length(1);
-          arr[0].a.should.equal(2);
-        });
-    });
-
     it('sets modified documents as pending sync', function() {
       return coll.insert({a: 1})
         .then(function(obj) {
@@ -122,56 +105,6 @@ describe('LowlaDB API', function() {
         });
     };
 
-    it('can find and modify the correct document among many documents', function() {
-      var id1, id2, id3;
-      return coll.insert({ a: 1})
-        .then(function(obj) {
-          id1 = obj._id;
-          return coll.insert({ a: 2});
-        })
-        .then(function(obj) {
-          id2 = obj._id;
-          return coll.insert({ a: 3});
-        })
-        .then(function(obj) {
-          id3 = obj._id;
-          return coll.find({}).toArray();
-        })
-        .then(function(arr) {
-          arr.should.have.length(3);
-          return coll.findAndModify({a: 2}, { $set: { a: 5 }});
-        })
-        .then(function() {
-          return coll.find({_id: id2 }).toArray();
-        })
-        .then(function(arr) {
-          arr.should.have.length(1);
-          arr[0].a.should.equal(5);
-        });
-    });
-
-    it('knows to not modify documents that are missing', function() {
-      return coll.insert({a: 1})
-        .then(function() {
-          return coll.insert({a: 2});
-        })
-        .then(function() {
-          return coll.insert({a: 3});
-        })
-        .then(function() {
-          return coll.findAndModify({x: 22}, {$set: {b: 2}});
-        })
-        .then(function() {
-          return coll.find({}).sort('a').toArray();
-        })
-        .then(function(arr) {
-          arr.should.have.length(3);
-          should.not.exist(arr[0].b);
-          should.not.exist(arr[1].b);
-          should.not.exist(arr[2].b);
-        });
-    });
-
     it('can count the documents', function() {
       return insertThreeDocuments().then(function() {
         return coll.find().count();
@@ -182,40 +115,14 @@ describe('LowlaDB API', function() {
         })
         .then(function(count) {
           count.should.equal(1);
-          return coll.find({}).limit(2).count();
+          return coll.find({}).limit(2).count(true);
         })
         .then(function(count) {
           count.should.equal(2);
-          return coll.find().limit(20).count();
+          return coll.find().limit(20).count(true);
         })
         .then(function(count) {
           count.should.equal(3);
-        });
-    });
-
-    it('can remove a document', function() {
-      var id1, id2, id3;
-      return coll.insert({a: 1})
-        .then(function(obj) {
-          id1 = obj._id;
-          return coll.insert({a: 2});
-        })
-        .then(function(obj) {
-          id2 = obj._id;
-          return coll.insert({a: 3});
-        })
-        .then(function(obj) {
-          id3 = obj._id;
-          return coll.remove({a: 2});
-        })
-        .then(function(count) {
-          count.should.equal(1);
-          return coll.find({}).sort('a').toArray();
-        })
-        .then(function(arr) {
-          arr.should.have.length(2);
-          arr[0].a.should.equal(1);
-          arr[1].a.should.equal(3);
         });
     });
 
@@ -319,43 +226,6 @@ describe('LowlaDB API', function() {
           });
         })
         ;
-    });
-
-    it('can count the documents in a collection', function() {
-      return insertThreeDocuments().then(function() {
-        return coll.count();
-      })
-        .then(function(count) {
-          count.should.equal(3);
-          return coll.count({a:2});
-        })
-        .then(function(count) {
-          count.should.equal(1);
-          return coll.count({});
-        })
-        .then(function(count) {
-          count.should.equal(3);
-          return coll.count({z:5});
-        })
-        .then(function(count) {
-          count.should.equal(0);
-        });
-    });
-
-    it('preserves existing ids when performing full document updates', function() {
-      var docId;
-      return insertDocuments([{a:1}])
-        .then(function(docs) {
-          docId = docs[0]._id;
-          return coll.findAndModify({a:1}, {a:2,b:3});
-        })
-        .then(function() {
-          return coll.find().toArray();
-        })
-        .then(function(arr) {
-          arr.length.should.equal(1);
-          arr[0]._id.should.equal(docId);
-        });
     });
   });
 });

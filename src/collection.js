@@ -59,7 +59,7 @@ var LowlaDB = (function(LowlaDB) {
         else if (i === '$unset') {
           opMode = true;
           for (var j2 in operations[i]) {
-            if (obj.hasOwnProperty(j2)) {
+            if (operations[i].hasOwnProperty(j2) && obj.hasOwnProperty(j2)) {
               delete obj[j2];
             }
           }
@@ -225,18 +225,23 @@ var LowlaDB = (function(LowlaDB) {
 
   function findOne(filter, callback) {
     /*jshint validthis:true */
-    return LowlaDB.Cursor(this, filter).limit(1).toArray().then(function(arr) {
-      var obj = (arr && arr.length > 0) ? arr[0] : undefined;
-      if (callback) {
-        callback(null, obj);
-      }
-      return obj;
-    }, function(err) {
-      if (callback) {
-        callback(err);
-      }
-      throw err;
-    });
+    var coll = this;
+    return Promise.resolve()
+      .then(function() {
+        return LowlaDB.Cursor(coll, filter).limit(1).toArray();
+      })
+      .then(function(arr) {
+        var obj = (arr && arr.length > 0) ? arr[0] : undefined;
+        if (callback) {
+          callback(null, obj);
+        }
+        return obj;
+      }, function(err) {
+        if (callback) {
+          callback(err);
+        }
+        throw err;
+      });
   }
 
   function find(filter) {
@@ -279,10 +284,19 @@ var LowlaDB = (function(LowlaDB) {
       });
   }
 
-  function remove(filter) {
+  function remove(filter, callback) {
     /*jshint validthis:true */
     var coll = this;
-    return this.find(filter).toArray()
+
+    if (typeof(filter) === 'function') {
+      callback = filter;
+      filter = {};
+    }
+
+    return Promise.resolve()
+      .then(function() {
+        return coll.find(filter).toArray();
+      })
       .then(function(arr) {
         var countRemoved = 0;
         return new Promise(function (resolve, reject) {
@@ -306,11 +320,27 @@ var LowlaDB = (function(LowlaDB) {
             LowlaDB.Cursor.notifyLive(coll);
             return countRemoved;
           });
+      })
+      .then(function(count) {
+        if (callback) {
+          callback(null, count);
+        }
+        return count;
+      }, function(err) {
+        if (callback) {
+          callback(err);
+        }
+        throw err;
       });
   }
 
-  function count(query) {
+  function count(query, callback) {
     /*jshint validthis:true */
-    return this.find(query).count();
+    if (typeof(query) === 'function') {
+      callback = query;
+      query = {};
+    }
+
+    return this.find(query).count(callback);
   }
 })(LowlaDB || {});

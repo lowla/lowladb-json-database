@@ -2,11 +2,13 @@ var testUtils = (function() {
   var service = {
     setUp: setUp,
     tearDown: tearDown,
-    cb: makeCb
+    cb: makeCb,
+    sandbox: undefined
   };
   return service;
 
   function setUp(done) {
+    service.sandbox = sinon.sandbox.create();
     var req = indexedDB.deleteDatabase( "lowla" );
     req.onsuccess = function () {
       done();
@@ -18,6 +20,10 @@ var testUtils = (function() {
   }
 
   function tearDown() {
+    if (service.sandbox) {
+      service.sandbox.restore();
+      service.sandbox = undefined;
+    }
     LowlaDB.close();
   }
 
