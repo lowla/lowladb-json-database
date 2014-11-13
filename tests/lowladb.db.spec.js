@@ -4,20 +4,8 @@
 
 describe('LowlaDB DB', function() {
 
-  beforeEach(function(done) {
-    var req = indexedDB.deleteDatabase( "lowla" );
-    req.onsuccess = function () {
-      done();
-    };
-
-    req.onerror = function () {
-      done('failed to delete db in beforeEach');
-    };
-  });
-
-  afterEach(function() {
-    LowlaDB.close();
-  });
+  beforeEach(testUtils.setUp);
+  afterEach(testUtils.tearDown);
 
   it('should create DB objects', function() {
     var theDB = LowlaDB.db('dbName');
@@ -72,6 +60,20 @@ describe('LowlaDB DB', function() {
         names.should.have.length(2);
         done();
       });
+    });
+
+    it('fails when scanDocuments errors', function(done) {
+      testUtils.sandbox.stub(LowlaDB.Datastore, 'scanDocuments').throws(Error('Datastore error'));
+      theDB
+        .collectionNames()
+        .should.eventually.be.rejectedWith(Error, /Datastore error/)
+        .then(function() {
+          theDB.collectionNames(testUtils.cb(done, function(err, names) {
+            should.not.exist(names);
+            err.should.match(/Datastore error/);
+          }));
+        })
+        .then(null, done);
     });
   });
 });
