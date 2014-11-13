@@ -125,12 +125,6 @@ var LowlaDB = (function(LowlaDB) {
       });
   };
 
-  SyncCoordinator.prototype.pollForChanges = function() {
-    this.fetchChanges().then(function() {
-      setTimeout(this.pollForChanges, 100);
-    }.bind(this));
-  };
-
   SyncCoordinator.validateSpecialTypes = function(obj) {
     for (var key in obj) {
       if (obj.hasOwnProperty(key)) {
