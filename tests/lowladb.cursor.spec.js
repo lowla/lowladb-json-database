@@ -289,4 +289,51 @@ describe('LowlaDB Cursor', function() {
         .then(null, done);
     });
   });
+
+  describe('on()', function() {
+    it('can watch for changes on collections', function() {
+      var wrappedCallback = null;
+
+      var callback = function(err, cursor) {
+        wrappedCallback(err, cursor);
+      };
+
+      return Promise.resolve()
+        .then(function() {
+          return new Promise(function(resolve, reject) {
+            wrappedCallback = function(err, cursor) {
+              cursor.toArray().then(function (arr) {
+                try {
+                  arr.should.have.length(3);
+                  resolve();
+                }
+                catch (err) {
+                  reject(err);
+                }
+              });
+            };
+
+            coll.find({}).sort('a').on(callback);
+          });
+        })
+        .then(function() {
+          return new Promise(function(resolve, reject) {
+            wrappedCallback = function(err, cursor) {
+              cursor.toArray().then(function (arr) {
+                try {
+                  arr.should.have.length(3);
+                  arr[0].b.should.equal(5);
+                  resolve();
+                }
+                catch (e) {
+                  reject(e);
+                }
+              });
+            };
+
+            coll.findAndModify({a: 1}, { $set: { b: 5 } });
+          });
+        });
+    });
+  });
 });

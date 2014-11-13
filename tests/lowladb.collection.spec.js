@@ -161,6 +161,23 @@ describe('LowlaDB Collection', function() {
           }));
         });
     });
+
+    it('only retrieve documents from the given collection', function() {
+      var coll = LowlaDB.collection('dbName', 'One');
+      var collTwo = LowlaDB.collection('dbName', 'Two');
+      return coll.insert({a: 1})
+        .then(function() {
+          return collTwo.insert({a: 2});
+        })
+        .then(function() {
+          return coll.find().toArray();
+        })
+        .then(function(arr) {
+          should.exist(arr);
+          arr.should.have.length(1);
+          arr[0].a.should.equal(1);
+        });
+    });
   });
 
   describe('findOne()', function() {
