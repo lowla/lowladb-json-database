@@ -161,7 +161,7 @@ var LowlaDB = (function(LowlaDB) {
         var request = tx.objectStore("lowla").delete(lowlaId);
         request.onsuccess = function() {
           if (removeDoneCallback) {
-            removeDoneCallback();
+            removeDoneCallback(txWrapper);
           }
         };
         request.onerror = removeErrCallback;
@@ -249,7 +249,8 @@ var LowlaDB = (function(LowlaDB) {
     }
   };
 
-  LowlaDB.Datastore = new Datastore();
+  LowlaDB.datastores = LowlaDB.datastores || {};
+  LowlaDB.Datastore = LowlaDB.datastores.IndexedDB = new Datastore();
 
   return LowlaDB;
 })(LowlaDB || {});

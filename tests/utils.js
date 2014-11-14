@@ -3,7 +3,8 @@ var testUtils = (function() {
     setUp: setUp,
     tearDown: tearDown,
     cb: makeCb,
-    sandbox: undefined
+    sandbox: undefined,
+    eachDatastore: eachDatastore
   };
   return service;
 
@@ -38,4 +39,9 @@ var testUtils = (function() {
       }
     }
   }
+
+  function eachDatastore(fn) {
+    LowlaDB.utils.keys(LowlaDB.datastores).forEach(fn);
+  }
+
 })();

@@ -5,6 +5,21 @@
 var LowlaDB = (function(LowlaDB) {
   'use strict';
 
+  LowlaDB.datastores = LowlaDB.datastores || {};
+
+  LowlaDB.registerDatastore = function(name, datastore) {
+    LowlaDB.datastores[name] = datastore;
+  };
+
+  LowlaDB.setDatastore = function(name) {
+    if (LowlaDB.datastores[name]) {
+      LowlaDB.Datastore = LowlaDB.datastores[name];
+    }
+    else {
+      throw Error('Unknown datastore: ' + name);
+    }
+  };
+
   LowlaDB.db = function (dbName) {
     return new LowlaDB.DB(dbName);
   };
@@ -83,7 +98,6 @@ var LowlaDB = (function(LowlaDB) {
       });
     }
   };
-
 
   LowlaDB.close = function() {
     LowlaDB.Cursor.off();
