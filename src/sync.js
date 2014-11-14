@@ -77,7 +77,10 @@ var LowlaDB = (function(LowlaDB) {
     }
 
     LowlaDB.emit('pullBegin');
-    return LowlaDB.utils.getJSON(this.urls.pull, { ids: ids })
+    return Promise.resolve()
+      .then(function() {
+        return LowlaDB.utils.getJSON(syncCoord.urls.pull, { ids: ids });
+      })
       .then(function(pullPayload) {
         return syncCoord.processPull(pullPayload);
       })
@@ -307,7 +310,7 @@ var LowlaDB = (function(LowlaDB) {
             delete metaData.changes[id];
           });
         }
-        else if (ids && metaData.hasOwnProperty(ids)) {
+        else if (ids && metaData.changes.hasOwnProperty(ids)) {
           delete metaData.changes[ids];
         }
         else if (!ids) {
@@ -327,7 +330,10 @@ var LowlaDB = (function(LowlaDB) {
         return Promise.resolve();
       }
 
-      return LowlaDB.utils.getJSON(syncCoord.urls.push, pushPayload)
+      return Promise.resolve()
+        .then(function() {
+          return LowlaDB.utils.getJSON(syncCoord.urls.push, pushPayload);
+        })
         .then(function(response) {
           return syncCoord.processPushResponse(response);
         })

@@ -223,23 +223,6 @@ var LowlaDB = (function(LowlaDB) {
     });
   };
 
-  Datastore.prototype.deleteDocument = function(clientId, doneFn, errorFn) {
-    if (typeof doneFn === 'object') {
-      errorFn = doneFn.error || function(e) { throw e; };
-      doneFn = doneFn.done || function() { };
-    }
-
-    db().then(function(db) {
-      var request = db.transaction(["lowla"], "readwrite").objectStore("lowla").delete(clientId);
-      request.onsuccess = function(event) {
-        doneFn();
-      };
-      request.onerror = function(event) {
-        errorFn();
-      };
-    });
-  };
-
   Datastore.prototype.close = function() {
     if (_ready) {
       return _ready.then(function(db) {
