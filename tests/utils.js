@@ -1,31 +1,37 @@
 var testUtils = (function() {
   var service = {
-    setUp: setUp,
-    tearDown: tearDown,
+    setUpFn: setUpFn,
+    tearDownFn: tearDownFn,
     cb: makeCb,
     sandbox: undefined,
     eachDatastore: eachDatastore
   };
   return service;
 
-  function setUp(done) {
-    service.sandbox = sinon.sandbox.create();
-    var req = indexedDB.deleteDatabase( "lowla" );
-    req.onsuccess = function () {
-      done();
-    };
+  function setUpFn(dsName) {
+    return function setUp(done) {
+      window.lowla = new LowlaDB({ datastore: dsName });
 
-    req.onerror = function () {
-      done('failed to delete db in beforeEach');
-    };
+      service.sandbox = sinon.sandbox.create();
+      var req = indexedDB.deleteDatabase("lowla");
+      req.onsuccess = function () {
+        done();
+      };
+
+      req.onerror = function () {
+        done('failed to delete db in beforeEach');
+      };
+    }
   }
 
-  function tearDown() {
-    if (service.sandbox) {
-      service.sandbox.restore();
-      service.sandbox = undefined;
+  function tearDownFn() {
+    return function tearDown() {
+      if (service.sandbox) {
+        service.sandbox.restore();
+        service.sandbox = undefined;
+      }
+      lowla.close();
     }
-    LowlaDB.close();
   }
 
   function makeCb(done, fn) {
@@ -41,7 +47,7 @@ var testUtils = (function() {
   }
 
   function eachDatastore(fn) {
-    LowlaDB.utils.keys(LowlaDB.datastores).forEach(fn);
+    LowlaDB.utils.keys(LowlaDB._datastores).forEach(fn);
   }
 
 })();

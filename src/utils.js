@@ -2,7 +2,7 @@
  * Created by michael on 10/10/14.
  */
 
-var LowlaDB = (function(LowlaDB) {
+(function(LowlaDB) {
   var utils = LowlaDB.utils || {};
 
   function createXHR() {
@@ -73,20 +73,11 @@ var LowlaDB = (function(LowlaDB) {
     return new Blob(byteArrays, {type: contentType});
   };
 
-  utils.metaData = function(newMeta) {
-    if (newMeta) {
-      return new Promise(function(resolve, reject) {
-        LowlaDB.Datastore.updateDocument("$metadata", newMeta, resolve, reject);
-      });
-    }
-    else {
-      return new Promise(function (resolve, reject) {
-        LowlaDB.Datastore.loadDocument("$metadata", resolve, reject);
-      });
-    }
-  };
-
   utils.keys = function(obj) {
+    if (!obj) {
+      return [];
+    }
+
     if (Object.keys) {
       return Object.keys(obj);
     }
@@ -107,4 +98,4 @@ var LowlaDB = (function(LowlaDB) {
 
   LowlaDB.utils = utils;
   return LowlaDB;
-})(LowlaDB || {});
+})(LowlaDB);

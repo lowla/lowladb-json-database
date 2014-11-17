@@ -18,6 +18,7 @@ module.exports = function(config) {
       'node_modules/sinon/pkg/sinon.js',
       'node_modules/sinon-chai/lib/sinon-chai.js',
       'node_modules/chai-as-promised/lib/chai-as-promised.js',
+      'src/lowladb.js',
       'src/*.js',
       'tests/utils.js',
       'tests/**/*.spec.js'

@@ -32,22 +32,23 @@ jQuery(function ($) {
 
 	var App = {
 		init: function () {
-      LowlaDB.on('pullBegin', function() {
+			var lowla = this.lowla = new LowlaDB({ datastore: 'Memory' });
+      lowla.on('pullBegin', function() {
         console.log("Pull beginning");
       });
-      LowlaDB.on('pushBegin', function() {
+      lowla.on('pushBegin', function() {
         console.log("Push beginning");
       });
 
-      LowlaDB.on('pullEnd', function() {
+      lowla.on('pullEnd', function() {
         console.log("Pull ended");
       });
-      LowlaDB.on('pushEnd', function() {
+      lowla.on('pushEnd', function() {
         console.log("Push ended");
       });
 
-      this.todos = LowlaDB.collection('lowlaSample', 'todos');
-      LowlaDB.sync('http://localhost:3000', { pollFrequency: 500 });
+      this.todos = lowla.collection('lowlaSample', 'todos');
+      lowla.sync('http://localhost:3000', { pollFrequency: 500 });
       this.todos.find({}).sort('title').on(function(err, cursor) {
         this.render(cursor);
       }.bind(this));

@@ -1,14 +1,11 @@
 testUtils.eachDatastore(function(dsName) {
   describe('LowlaDB Collection (' + dsName + ')', function () {
-    beforeEach(testUtils.setUp);
-    afterEach(testUtils.tearDown);
-    beforeEach(function() {
-      LowlaDB.setDatastore(dsName);
-    });
+    beforeEach(testUtils.setUpFn(dsName));
+    afterEach(testUtils.tearDownFn());
 
     describe('count()', function () {
       it('can count the documents in a collection', function (done) {
-        var coll = LowlaDB.collection('dbName', 'TestColl');
+        var coll = lowla.collection('dbName', 'TestColl');
         coll
           .insert([{a: 1}, {a: 2}, {a: 3}])
           .then(function () {
@@ -42,7 +39,7 @@ testUtils.eachDatastore(function(dsName) {
 
     describe('insert()', function () {
       it('can create documents', function (done) {
-        var coll = LowlaDB.collection('dbName', 'CollName');
+        var coll = lowla.collection('dbName', 'CollName');
         coll.insert({a: 1})
           .then(function (doc) {
             should.exist(doc);
@@ -60,7 +57,7 @@ testUtils.eachDatastore(function(dsName) {
       });
 
       it('can insert multiple documents at once', function (done) {
-        var coll = LowlaDB.collection('dbName', 'CollName');
+        var coll = lowla.collection('dbName', 'CollName');
         coll.insert([{a: 1}, {b: 2}])
           .then(function (docs) {
             docs.should.be.a('array');
@@ -87,7 +84,7 @@ testUtils.eachDatastore(function(dsName) {
       });
 
       it('prevents inserting $field names', function (done) {
-        var coll = LowlaDB.collection('dbName', 'CollName');
+        var coll = lowla.collection('dbName', 'CollName');
         coll.insert({$field: 1})
           .then(function () {
             done(Error('Promise should not have resolved successfully'));
@@ -108,7 +105,7 @@ testUtils.eachDatastore(function(dsName) {
 
     describe('find()', function () {
       it('with no documents in datastore works without error', function (done) {
-        var coll = LowlaDB.collection('dbName', 'CollName');
+        var coll = lowla.collection('dbName', 'CollName');
         coll.find({}).toArray()
           .then(function (docs) {
             should.exist(docs);
@@ -125,7 +122,7 @@ testUtils.eachDatastore(function(dsName) {
       });
 
       it('with no matching documents works without error', function (done) {
-        var coll = LowlaDB.collection('dbName', 'CollName');
+        var coll = lowla.collection('dbName', 'CollName');
         coll.insert([{a: 1}, {b: 2}])
           .then(function (docs) {
             docs.should.have.length(2);
@@ -146,7 +143,7 @@ testUtils.eachDatastore(function(dsName) {
       });
 
       it('finds a single document among many', function (done) {
-        var coll = LowlaDB.collection('dbName', 'CollName');
+        var coll = lowla.collection('dbName', 'CollName');
         coll.insert([{a: 1}, {b: 2}, {c: 3}, {d: 4}])
           .then(function (docs) {
             docs.should.have.length(4);
@@ -167,8 +164,8 @@ testUtils.eachDatastore(function(dsName) {
       });
 
       it('only retrieve documents from the given collection', function () {
-        var coll = LowlaDB.collection('dbName', 'One');
-        var collTwo = LowlaDB.collection('dbName', 'Two');
+        var coll = lowla.collection('dbName', 'One');
+        var collTwo = lowla.collection('dbName', 'Two');
         return coll.insert({a: 1})
           .then(function () {
             return collTwo.insert({a: 2});
@@ -187,7 +184,7 @@ testUtils.eachDatastore(function(dsName) {
     describe('findOne()', function () {
       var coll;
       beforeEach(function () {
-        coll = LowlaDB.collection('dbName', 'CollName');
+        coll = lowla.collection('dbName', 'CollName');
       });
 
       it('finds nothing without error', function (done) {
@@ -262,7 +259,7 @@ testUtils.eachDatastore(function(dsName) {
       var coll;
 
       beforeEach(function () {
-        coll = LowlaDB.collection('dbName', 'CollName');
+        coll = lowla.collection('dbName', 'CollName');
       });
 
       it('can find and modify a document', function (done) {
@@ -408,7 +405,7 @@ testUtils.eachDatastore(function(dsName) {
     describe('remove()', function () {
       var coll;
       beforeEach(function () {
-        coll = LowlaDB.collection('dbName', 'CollName');
+        coll = lowla.collection('dbName', 'CollName');
       });
 
       it('can remove a document', function (done) {

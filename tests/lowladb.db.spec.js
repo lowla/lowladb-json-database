@@ -5,19 +5,16 @@
 testUtils.eachDatastore(function(dsName) {
   describe('LowlaDB DB (' + dsName + ')', function () {
 
-    beforeEach(testUtils.setUp);
-    afterEach(testUtils.tearDown);
-    beforeEach(function() {
-      LowlaDB.setDatastore(dsName);
-    });
+    beforeEach(testUtils.setUpFn(dsName));
+    afterEach(testUtils.tearDownFn());
 
     it('should create DB objects', function () {
-      var theDB = LowlaDB.db('dbName');
+      var theDB = lowla.db('dbName');
       should.exist(theDB);
     });
 
     it('can create collections', function () {
-      var theDB = LowlaDB.db('dbName');
+      var theDB = lowla.db('dbName');
       var theColl = theDB.collection('TestCollection');
       should.exist(theColl);
     });
@@ -25,9 +22,9 @@ testUtils.eachDatastore(function(dsName) {
     describe('.collectionNames', function () {
       var theDB, coll, collTwo;
       beforeEach(function () {
-        theDB = LowlaDB.db('dbName');
-        coll = LowlaDB.collection('dbName', 'collectionOne');
-        collTwo = LowlaDB.collection('dbName', 'collectionTwo');
+        theDB = lowla.db('dbName');
+        coll = lowla.collection('dbName', 'collectionOne');
+        collTwo = lowla.collection('dbName', 'collectionTwo');
         return Promise.all([coll.insert({a: 1}), collTwo.insert({b: 2})]);
       });
 
@@ -67,7 +64,7 @@ testUtils.eachDatastore(function(dsName) {
       });
 
       it('fails when scanDocuments errors', function (done) {
-        testUtils.sandbox.stub(LowlaDB.Datastore, 'scanDocuments').throws(Error('Datastore error'));
+        testUtils.sandbox.stub(lowla.datastore, 'scanDocuments').throws(Error('Datastore error'));
         theDB
           .collectionNames()
           .should.eventually.be.rejectedWith(Error, /Datastore error/)

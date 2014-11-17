@@ -11,7 +11,7 @@ module.exports = function(grunt) {
         separator: ';'
       },
       dist: {
-        src: ['src/**/*.js'],
+        src: ['src/lowladb.js', 'src/**/*.js'],
         dest: 'dist/<%= pkg.name %>.js'
       }
     },

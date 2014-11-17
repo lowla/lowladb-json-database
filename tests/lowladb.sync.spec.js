@@ -4,20 +4,15 @@
 
 testUtils.eachDatastore(function(dsName) {
   describe('LowlaDB Sync (' + dsName + ')', function () {
-    beforeEach(testUtils.setUp);
-    afterEach(testUtils.tearDown);
-    beforeEach(function() {
-      LowlaDB.setDatastore(dsName);
-    });
+    beforeEach(testUtils.setUpFn(dsName));
+    afterEach(testUtils.tearDownFn());
 
-    var coll = LowlaDB.collection('dbName', 'collectionOne');
-    beforeEach(function () {
-      LowlaDB.sync('http://lowla.io/', {pollFrequency: -1});
-    });
-
+    var coll;
     var getJSON;
     beforeEach(function () {
+      coll = lowla.collection('dbName', 'collectionOne');
       getJSON = testUtils.sandbox.stub(LowlaDB.utils, 'getJSON');
+      lowla.sync('http://lowla.io/', {pollFrequency: -1});
     });
 
     var makeChangesResponse = function () {
@@ -64,15 +59,15 @@ testUtils.eachDatastore(function(dsName) {
     };
 
     it('fails with missing sync URLs', function() {
-      var fn = function() { LowlaDB.sync(); };
+      var fn = function() { lowla.sync(); };
       fn.should.throw(/Invalid server URL/);
     });
 
     describe('Pull', function () {
       it('requests changes from sequence 0', function () {
         getJSON.returns(Promise.resolve({}));
-        testUtils.sandbox.stub(LowlaDB._syncCoordinator, 'processChanges').returns(Promise.resolve({}));
-        return LowlaDB._syncCoordinator.fetchChanges()
+        testUtils.sandbox.stub(lowla._syncCoordinator, 'processChanges').returns(Promise.resolve({}));
+        return lowla._syncCoordinator.fetchChanges()
           .then(function () {
             getJSON.callCount.should.equal(1);
             getJSON.getCall(0).should.have.been.calledWith('http://lowla.io/_lowla/changes?seq=0');
@@ -80,9 +75,9 @@ testUtils.eachDatastore(function(dsName) {
       });
 
       it('processes responses from the Syncer', function () {
-        var processChanges = LowlaDB._syncCoordinator.processChanges = testUtils.sandbox.stub();
+        var processChanges = lowla._syncCoordinator.processChanges = testUtils.sandbox.stub();
         getJSON.returns(Promise.resolve(makeChangesResponse().obj));
-        var promise = LowlaDB._syncCoordinator.fetchChanges();
+        var promise = lowla._syncCoordinator.fetchChanges();
         return promise.then(function () {
           processChanges.callCount.should.equal(1);
           processChanges.getCall(0).should.have.been.calledWith({atoms: [], sequence: 1});
@@ -90,7 +85,7 @@ testUtils.eachDatastore(function(dsName) {
       });
 
       it('can process an empty response', function() {
-         return LowlaDB._syncCoordinator.processChanges({ sequence: 1, atoms: [] })
+         return lowla._syncCoordinator.processChanges({ sequence: 1, atoms: [] })
            .then(function(arg) {
              should.not.exist(arg);
            });
@@ -98,7 +93,7 @@ testUtils.eachDatastore(function(dsName) {
 
       it('requests changes from Adapter', function () {
         getJSON.returns(Promise.resolve({}));
-        return LowlaDB._syncCoordinator.processChanges(makeChangesResponse('dbName.collectionOne$1234').obj)
+        return lowla._syncCoordinator.processChanges(makeChangesResponse('dbName.collectionOne$1234').obj)
           .then(function () {
             getJSON.callCount.should.equal(1);
             getJSON.getCall(0).should.have.been.calledWith('http://lowla.io/_lowla/pull', {ids: ['dbName.collectionOne$1234']});
@@ -108,8 +103,8 @@ testUtils.eachDatastore(function(dsName) {
       it('processes responses from the Adapter', function () {
         var pullResponse = makeAdapterResponse({_id: '1234', a: 1, b: 22, text: 'Received', _version: 1});
         getJSON.returns(Promise.resolve(pullResponse));
-        var processPull = LowlaDB._syncCoordinator.processPull = testUtils.sandbox.stub();
-        var promise = LowlaDB._syncCoordinator.processChanges({atoms: ['dbName.collectionOne$1234'], sequence: 7});
+        var processPull = lowla._syncCoordinator.processPull = testUtils.sandbox.stub();
+        var promise = lowla._syncCoordinator.processChanges({atoms: ['dbName.collectionOne$1234'], sequence: 7});
         return promise.then(function (newSeq) {
           processPull.callCount.should.equal(1);
           processPull.getCall(0).should.have.been.calledWith(pullResponse);
@@ -119,7 +114,7 @@ testUtils.eachDatastore(function(dsName) {
 
       it('updates the datastore with pull response', function () {
         var pullResponse = makeAdapterResponse({_id: '1234', a: 1, b: 22, text: 'Received', _version: 1});
-        return LowlaDB._syncCoordinator.processPull(pullResponse)
+        return lowla._syncCoordinator.processPull(pullResponse)
           .then(function () {
             return coll.find().toArray();
           })
@@ -133,21 +128,21 @@ testUtils.eachDatastore(function(dsName) {
 
       it('deletes documents based on pull response', function () {
         var pullResponse = makeAdapterResponse({_id: '1234', a: 1, _version: 1});
-        return LowlaDB._syncCoordinator.processPull(pullResponse)
+        return lowla._syncCoordinator.processPull(pullResponse)
           .then(function () {
             return coll.find().toArray();
           })
           .then(function (arr) {
             arr.should.have.length(1);
             pullResponse = makeAdapterResponse({_id: '1234', _deleted: true, _version: 2});
-            return LowlaDB._syncCoordinator.processPull(pullResponse);
+            return lowla._syncCoordinator.processPull(pullResponse);
           })
           .then(function () {
             return coll.find().toArray();
           })
           .then(function (arr) {
             arr.should.have.length(0);
-            return LowlaDB._syncCoordinator.collectPushData([]);
+            return lowla._syncCoordinator.collectPushData([]);
           })
           .then(function (payload) {
             should.not.exist(payload);
@@ -158,7 +153,7 @@ testUtils.eachDatastore(function(dsName) {
         return coll.insert({_id: '1234', a: 1})
           .then(function () {
             var pullResponse = makeAdapterResponse({_id: '1234', a: 2, _version: 2});
-            return LowlaDB._syncCoordinator.processPull(pullResponse);
+            return lowla._syncCoordinator.processPull(pullResponse);
           })
           .then(function () {
             return coll.find({}).toArray();
@@ -168,7 +163,7 @@ testUtils.eachDatastore(function(dsName) {
             arr[0].a.should.equal(1);
 
             var pullResponse = makeAdapterResponse(({_id: '1234', _deleted: true, _version: 3}));
-            return LowlaDB._syncCoordinator.processPull(pullResponse);
+            return lowla._syncCoordinator.processPull(pullResponse);
           })
           .then(function () {
             return coll.find({}).toArray();
@@ -181,9 +176,9 @@ testUtils.eachDatastore(function(dsName) {
 
       it('does not store push data for pull responses', function () {
         var pullResponse = makeAdapterResponse({_id: '1234', a: 1, b: 22, text: 'Received', _version: 1});
-        return LowlaDB._syncCoordinator.processPull(pullResponse)
+        return lowla._syncCoordinator.processPull(pullResponse)
           .then(function () {
-            return LowlaDB._syncCoordinator.collectPushData();
+            return lowla._syncCoordinator.collectPushData();
           })
           .then(function (pushPayload) {
             should.not.exist(pushPayload);
@@ -195,7 +190,7 @@ testUtils.eachDatastore(function(dsName) {
           {_id: '1234', a: 1, b: 22, text: 'Received', _version: 1},
           {_id: '2345', a: 2, b: 33, _version: 1}
         );
-        return LowlaDB._syncCoordinator.processPull(pullResponse)
+        return lowla._syncCoordinator.processPull(pullResponse)
           .then(function () {
             return coll.find().sort('a').toArray();
           })
@@ -208,7 +203,7 @@ testUtils.eachDatastore(function(dsName) {
 
       it('can import dates from adapter', function () {
         var pullResponse = makeAdapterResponse({_id: '1234', a: 1, date: {_bsonType: 'Date', millis: 132215400000}}); // 1974-Mar-11
-        return LowlaDB._syncCoordinator.processPull(pullResponse)
+        return lowla._syncCoordinator.processPull(pullResponse)
           .then(function () {
             return coll.findOne({_id: '1234'});
           })
@@ -228,7 +223,7 @@ testUtils.eachDatastore(function(dsName) {
           date: {_bsonType: 'NotADate', millis: 132215400000}
         }); // 1974-Mar-11
         var fn = function () {
-          LowlaDB._syncCoordinator.processPull(pullResponse);
+          lowla._syncCoordinator.processPull(pullResponse);
         };
         fn.should.throw(Error, /Unexpected BSON type: NotADate/);
       });
@@ -239,7 +234,7 @@ testUtils.eachDatastore(function(dsName) {
           a: 1,
           subDoc: {b: 2, date: {_bsonType: 'Date', millis: 132215400000}}
         }); // 1974-Mar-11
-        return LowlaDB._syncCoordinator.processPull(pullResponse)
+        return lowla._syncCoordinator.processPull(pullResponse)
           .then(function () {
             return coll.findOne({_id: '1234'});
           })
@@ -260,7 +255,7 @@ testUtils.eachDatastore(function(dsName) {
             {_bsonType: 'Date', millis: -69183000000}  // 1967-Oct-23
           ]
         });
-        return LowlaDB._syncCoordinator.processPull(pullResponse)
+        return lowla._syncCoordinator.processPull(pullResponse)
           .then(function () {
             return coll.findOne({_id: '1234'});
           })
@@ -283,7 +278,7 @@ testUtils.eachDatastore(function(dsName) {
           a: 1,
           val: {_bsonType: 'Binary', type: 0, encoded: 'RW5jb2RlZCBTdHJpbmc='}
         }); // 'Encoded String'
-        return LowlaDB._syncCoordinator.processPull(pullResponse)
+        return lowla._syncCoordinator.processPull(pullResponse)
           .then(function () {
             return coll.findOne({_id: '1234'});
           })
@@ -308,7 +303,7 @@ testUtils.eachDatastore(function(dsName) {
         return coll.insert({a: 1, b: 2})
           .then(function (obj) {
             objId = obj._id;
-            return LowlaDB._syncCoordinator.collectPushData();
+            return lowla._syncCoordinator.collectPushData();
           })
           .then(function (payload) {
             payload.documents.should.have.length(1);
@@ -332,7 +327,7 @@ testUtils.eachDatastore(function(dsName) {
             return coll.findAndModify({a: 1}, {$set: {b: 22}});
           })
           .then(function (obj) {
-            return LowlaDB._syncCoordinator.collectPushData();
+            return lowla._syncCoordinator.collectPushData();
           })
           .then(function (payload) {
             payload.documents.should.have.length(1);
@@ -353,10 +348,10 @@ testUtils.eachDatastore(function(dsName) {
         return coll.insert({a: 1})
           .then(function (obj) {
             objId = obj._id;
-            return LowlaDB._syncCoordinator.clearPushData();
+            return lowla._syncCoordinator.clearPushData();
           })
           .then(function () {
-            return LowlaDB._syncCoordinator.collectPushData();
+            return lowla._syncCoordinator.collectPushData();
           })
           .then(function (payload) {
             should.not.exist(payload);
@@ -368,13 +363,13 @@ testUtils.eachDatastore(function(dsName) {
         return coll.insert({a: 1})
           .then(function (obj) {
             objId = obj._id;
-            return LowlaDB._syncCoordinator.clearPushData();
+            return lowla._syncCoordinator.clearPushData();
           })
           .then(function () {
             return coll.findAndModify({a: 1}, {$set: {b: 2}});
           })
           .then(function () {
-            return LowlaDB._syncCoordinator.collectPushData();
+            return lowla._syncCoordinator.collectPushData();
           })
           .then(function (payload) {
             payload.documents.should.have.length(1);
@@ -387,13 +382,13 @@ testUtils.eachDatastore(function(dsName) {
       it('can compute payload for deleted documents', function () {
         return coll.insert({_id: '1234', a: 1, _version: 2})
           .then(function () {
-            return LowlaDB._syncCoordinator.clearPushData();
+            return lowla._syncCoordinator.clearPushData();
           })
           .then(function () {
             return coll.remove({_id: '1234'});
           })
           .then(function () {
-            return LowlaDB._syncCoordinator.collectPushData();
+            return lowla._syncCoordinator.collectPushData();
           })
           .then(function (payload) {
             payload.documents.should.have.length(1);
@@ -405,7 +400,7 @@ testUtils.eachDatastore(function(dsName) {
 
       it('can process a push response from adapter', function () {
         var pushResponse = makeAdapterResponse({_id: '1234', a: 2, b: 5});
-        return LowlaDB._syncCoordinator.processPushResponse(pushResponse)
+        return lowla._syncCoordinator.processPushResponse(pushResponse)
           .then(function (ids) {
             ids.should.have.length(1);
             ids[0].should.equal('dbName.collectionOne$1234');
@@ -422,14 +417,14 @@ testUtils.eachDatastore(function(dsName) {
           .then(function () {
             var pushResponse = makeAdapterResponse({_id: 'deleteFromPush', _deleted: true, _version: 2});
             getJSON.returns(Promise.resolve(pushResponse));
-            return LowlaDB._syncCoordinator.pushChanges();
+            return lowla._syncCoordinator.pushChanges();
           })
           .then(function () {
             return coll.find({}).toArray();
           })
           .then(function (arr) {
             arr.should.have.length(0);
-            return LowlaDB._syncCoordinator.collectPushData([]);
+            return lowla._syncCoordinator.collectPushData([]);
           })
           .then(function (payload) {
             should.not.exist(payload);
@@ -443,7 +438,7 @@ testUtils.eachDatastore(function(dsName) {
             objId = obj._id;
             var pushResponse = makeAdapterResponse({_id: objId, a: 1});
             getJSON.returns(Promise.resolve(pushResponse));
-            return LowlaDB._syncCoordinator.pushChanges();
+            return lowla._syncCoordinator.pushChanges();
           })
           .then(function () {
             return coll.findOne({a: 1});
@@ -451,7 +446,7 @@ testUtils.eachDatastore(function(dsName) {
           .then(function (doc) {
             should.exist(doc);
             doc._id.should.equal(objId);
-            return LowlaDB._syncCoordinator.collectPushData();
+            return lowla._syncCoordinator.collectPushData();
           })
           .then(function (payload) {
             should.not.exist(payload);
@@ -467,13 +462,13 @@ testUtils.eachDatastore(function(dsName) {
         var pushEnd = testUtils.sandbox.stub();
         var pullBegin = testUtils.sandbox.stub();
         var pullEnd = testUtils.sandbox.stub();
-        LowlaDB.on('syncBegin', syncBegin);
-        LowlaDB.on('syncEnd', syncEnd);
-        LowlaDB.on('pushBegin', pushBegin);
-        LowlaDB.on('pushEnd', pushEnd);
-        LowlaDB.on('pullBegin', pullBegin);
-        LowlaDB.on('pullEnd', pullEnd);
-        LowlaDB.on('syncEnd', function () {
+        lowla.on('syncBegin', syncBegin);
+        lowla.on('syncEnd', syncEnd);
+        lowla.on('pushBegin', pushBegin);
+        lowla.on('pushEnd', pushEnd);
+        lowla.on('pullBegin', pullBegin);
+        lowla.on('pullEnd', pullEnd);
+        lowla.on('syncEnd', function () {
           try {
             syncBegin.callCount.should.equal(1);
             pushBegin.callCount.should.equal(1);
@@ -502,18 +497,18 @@ testUtils.eachDatastore(function(dsName) {
             getJSON.onSecondCall().returns(Promise.resolve({sequence: 2, atoms: ['dbName.TestCollection$' + objId]}));
             getJSON.onThirdCall().returns(Promise.resolve(makeAdapterResponse({_id: objId, a: 1})));
 
-            LowlaDB.sync('http://lowla.io', {pollFrequency: 0});
+            lowla.sync('http://lowla.io', {pollFrequency: 0});
           })
           .catch(done);
       });
 
       it('fires pullEnd after an error', function() {
         var pullEnd = testUtils.sandbox.stub();
-        LowlaDB.on('pullEnd', pullEnd);
+        lowla.on('pullEnd', pullEnd);
         var changes = makeChangesResponse('dbName.collectionOne$1234').obj;
         getJSON.onFirstCall().returns(Promise.resolve(changes));
         getJSON.onSecondCall().throws(Error('Bad request'));
-        return LowlaDB._syncCoordinator.fetchChanges()
+        return lowla._syncCoordinator.fetchChanges()
           .then(function() {
             pullEnd.callCount.should.equal(1);
           });
@@ -521,11 +516,11 @@ testUtils.eachDatastore(function(dsName) {
 
       it('fires pushEnd after an error', function() {
         var pushEnd = testUtils.sandbox.stub();
-        LowlaDB.on('pushEnd', pushEnd);
+        lowla.on('pushEnd', pushEnd);
         getJSON.throws(Error('Bad request'));
         return coll.insert({a:1})
           .then(function() {
-            return LowlaDB._syncCoordinator.pushChanges();
+            return lowla._syncCoordinator.pushChanges();
           })
           .then(function() {
             pushEnd.callCount.should.equal(1);
@@ -555,7 +550,7 @@ testUtils.eachDatastore(function(dsName) {
 
         return Promise.all(promises)
           .then(function () {
-            return LowlaDB._syncCoordinator.pushChanges();
+            return lowla._syncCoordinator.pushChanges();
           })
           .then(function () {
             getJSON.callCount.should.equal(3);
@@ -595,7 +590,7 @@ testUtils.eachDatastore(function(dsName) {
           .then(function (docs) {
             // Skip the second document
             skipID = 'dbName.collectionOne$' + docs[1]._id;
-            return LowlaDB._syncCoordinator.pushChanges();
+            return lowla._syncCoordinator.pushChanges();
           })
           .then(function () {
             getJSON.callCount.should.equal(2);
@@ -603,7 +598,7 @@ testUtils.eachDatastore(function(dsName) {
             getJSON.args[1][1].documents.should.have.length(5);
 
             getJSON.reset();
-            return LowlaDB._syncCoordinator.pushChanges();
+            return lowla._syncCoordinator.pushChanges();
           })
           .then(function () {
             getJSON.callCount.should.equal(1);

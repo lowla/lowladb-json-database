@@ -2,9 +2,8 @@
  * Created by michael on 10/15/14.
  */
 
-var LowlaDB = (function(LowlaDB) {
+(function(LowlaDB) {
   'use strict';
-  var liveCursors = {};
 
   // Public API
   LowlaDB.Cursor = Cursor;
@@ -17,7 +16,6 @@ var LowlaDB = (function(LowlaDB) {
   Cursor.prototype.toArray = toArray;
 
   Cursor.prototype.on = on;
-  Cursor.off = off;
   Cursor.notifyLive = notifyLive;
   Cursor.prototype.cloneWithOptions = cloneWithOptions;
 
@@ -33,6 +31,7 @@ var LowlaDB = (function(LowlaDB) {
       return new Cursor(collection, filter, options);
     }
 
+    this._lowla = collection.lowla;
     this._collection = collection;
     this._filter = filter;
     this._options = {
@@ -164,7 +163,7 @@ var LowlaDB = (function(LowlaDB) {
     var cursor = this;
     var answer;
     return new Promise(function(resolve, reject) {
-      LowlaDB.Datastore.transact(applyFilter, resolve, reject);
+      cursor._collection.datastore.transact(applyFilter, resolve, reject);
       function applyFilter(tx) {
         cursor._applyFilterInTx(tx, function(docs) {
           answer = docs;
@@ -178,28 +177,24 @@ var LowlaDB = (function(LowlaDB) {
 
   function notifyLive(coll) {
     var key = coll.dbName + '.' + coll.collectionName;
-    if (!liveCursors[key]) {
+    if (!coll.lowla.liveCursors[key]) {
       return;
     }
 
-    liveCursors[key].forEach(function (watcher) {
+    coll.lowla.liveCursors[key].forEach(function (watcher) {
       watcher.callback(null, watcher.cursor);
     });
-  }
-
-  function off() {
-    liveCursors = {};
   }
 
   function on(callback) {
     /* jshint validthis:true */
     var coll = this._collection;
     var key = coll.dbName + '.' + coll.collectionName;
-    if (!liveCursors[key]) {
-      liveCursors[key] = [];
+    if (!coll.lowla.liveCursors[key]) {
+      coll.lowla.liveCursors[key] = [];
     }
 
-    liveCursors[key].push({ cursor: this, callback: callback });
+    coll.lowla.liveCursors[key].push({ cursor: this, callback: callback });
     callback(null, this);
   }
 
@@ -294,4 +289,4 @@ var LowlaDB = (function(LowlaDB) {
     });
   }
 
-})(LowlaDB || {});
+})(LowlaDB);

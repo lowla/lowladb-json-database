@@ -2,7 +2,7 @@
  * Created by michael on 10/15/14.
  */
 
-var LowlaDB = (function(LowlaDB) {
+(function(LowlaDB) {
 
   var indexedDB = this.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
   var Datastore = function() {
@@ -232,8 +232,7 @@ var LowlaDB = (function(LowlaDB) {
     }
   };
 
-  LowlaDB.datastores = LowlaDB.datastores || {};
-  LowlaDB.Datastore = LowlaDB.datastores.IndexedDB = new Datastore();
+  LowlaDB.registerDatastore('IndexedDB', new Datastore());
 
   return LowlaDB;
-})(LowlaDB || {});
+})(LowlaDB);

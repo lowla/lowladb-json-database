@@ -2,19 +2,17 @@
  * Created by michael on 11/13/14.
  */
 
-var LowlaDB = (function(LowlaDB) {
+(function(LowlaDB) {
   var data = {};
 
   // Public API
-  LowlaDB.datastores = LowlaDB.datastores || {};
-  LowlaDB.datastores.Memory = new MemoryDatastore();
-
   MemoryDatastore.prototype.scanDocuments = scanDocuments;
   MemoryDatastore.prototype.transact = transact;
   MemoryDatastore.prototype.loadDocument = loadDocument;
   MemoryDatastore.prototype.updateDocument = updateDocument;
   MemoryDatastore.prototype.close = close;
 
+  LowlaDB.registerDatastore('Memory', new MemoryDatastore());
   return LowlaDB;
   ///////////////
 
@@ -132,4 +130,4 @@ var LowlaDB = (function(LowlaDB) {
       });
     }
   }
-})(LowlaDB || {});
+})(LowlaDB);

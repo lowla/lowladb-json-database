@@ -2,10 +2,13 @@
  * Created by michael on 10/10/14.
  */
 
-var LowlaDB = (function(LowlaDB) {
+(function(LowlaDB) {
   var keys;
 
-  var SyncCoordinator = function(baseUrl) {
+  var SyncCoordinator = function(lowla, baseUrl) {
+    this.lowla = lowla;
+    this.datastore = lowla.datastore;
+
     keys = LowlaDB.utils.keys;
 
     if (!baseUrl || !baseUrl.length) {
@@ -23,15 +26,16 @@ var LowlaDB = (function(LowlaDB) {
   };
 
   SyncCoordinator.prototype.processPull = function(payload) {
+    var datastore = this.datastore;
+    var lowla = this.lowla;
     var i = 0;
     var promises = [];
+    var collections = {};
+
     while (i < payload.length) {
-      var dot = payload[i].clientNs.indexOf('.');
-      var dbName = payload[i].clientNs.substring(0, dot);
-      var collName = payload[i].clientNs.substring(dot + 1);
-      var collection = LowlaDB.collection(dbName, collName);
+      collections[payload[i].clientNs] = true;
+
       if (payload[i].deleted) {
-        dot = payload[i].id.indexOf('$');
         promises.push(updateIfUnchanged(payload[i].id));
       }
       else {
@@ -41,17 +45,26 @@ var LowlaDB = (function(LowlaDB) {
       i++;
     }
 
-    return Promise.all(promises);
+    return Promise.all(promises)
+      .then(function() {
+        LowlaDB.utils.keys(collections).forEach(function(collName) {
+          var dbName = collName.substring(0, collName.indexOf('.'));
+          collName = collName.substring(dbName.length + 1);
+          LowlaDB.Cursor.notifyLive(lowla.collection(dbName, collName));
+        });
+      });
 
     function updateIfUnchanged(lowlaId, doc) {
       return new Promise(function(resolve, reject) {
-        LowlaDB.Datastore.transact(txFn, resolve, reject);
+        datastore.transact(txFn, resolve, reject);
 
         function txFn(tx) {
           tx.load("$metadata", checkMeta);
         }
 
         function checkMeta(metaDoc, tx) {
+          // Don't overwrite locally-modified documents with changes from server.  Let next
+          //  sync figure out the conflict.
           if (metaDoc && metaDoc.changes && metaDoc.changes.hasOwnProperty(lowlaId)) {
             resolve();
           }
@@ -70,13 +83,14 @@ var LowlaDB = (function(LowlaDB) {
 
   SyncCoordinator.prototype.processChanges = function(payload) {
     var syncCoord = this;
+    var lowla = this.lowla;
     var ids = [];
     payload.atoms.map(function(atom) { ids.push(atom.id); });
     if (0 === ids.length) {
       return Promise.resolve();
     }
 
-    LowlaDB.emit('pullBegin');
+    lowla.emit('pullBegin');
     return Promise.resolve()
       .then(function() {
         return LowlaDB.utils.getJSON(syncCoord.urls.pull, { ids: ids });
@@ -86,13 +100,13 @@ var LowlaDB = (function(LowlaDB) {
       })
       .then(function() {
         return new Promise(function(resolve, reject) {
-          LowlaDB.Datastore.loadDocument("$metadata", {
+          lowla.datastore.loadDocument("$metadata", {
             document: function(doc) {
               if (!doc) {
                 doc = {};
               }
               doc.sequence = payload.sequence;
-              LowlaDB.Datastore.updateDocument("$metadata", doc, function() {
+              lowla.datastore.updateDocument("$metadata", doc, function() {
                 resolve(payload.sequence);
               }, reject);
             }
@@ -100,10 +114,10 @@ var LowlaDB = (function(LowlaDB) {
         });
       })
       .then(function(arg) {
-        LowlaDB.emit('pullEnd');
+        lowla.emit('pullEnd');
         return arg;
       }, function(err) {
-        LowlaDB.emit('pullEnd');
+        lowla.emit('pullEnd');
         throw err;
       });
   };
@@ -111,7 +125,7 @@ var LowlaDB = (function(LowlaDB) {
   SyncCoordinator.prototype.fetchChanges = function() {
     var syncCoord = this;
     return new Promise(function(resolve, reject) {
-      LowlaDB.Datastore.loadDocument("$metadata", {
+      syncCoord.datastore.loadDocument("$metadata", {
         document: resolve,
         error: reject
       });
@@ -182,15 +196,16 @@ var LowlaDB = (function(LowlaDB) {
   };
 
   SyncCoordinator.prototype.collectPushData = function(alreadySeen) {
+    var datastore = this.datastore;
     alreadySeen = alreadySeen || {};
-    return LowlaDB.utils.metaData().then(function(metaDoc) {
+    return this.lowla._metadata().then(function(metaDoc) {
       if (!metaDoc || !metaDoc.changes) {
         return null;
       }
 
       return new Promise(function (resolve, reject) {
         var docs = [];
-        LowlaDB.Datastore.scanDocuments(function(lowlaId, doc) {
+        datastore.scanDocuments(function(lowlaId, doc) {
           if (docs.length >= 10 || alreadySeen.hasOwnProperty(lowlaId)) {
             return;
           }
@@ -266,6 +281,7 @@ var LowlaDB = (function(LowlaDB) {
   };
 
   SyncCoordinator.prototype.processPushResponse = function(payload) {
+    var lowla = this.lowla;
     var makeUpdateHandler = function(docId) {
       return function() {
         return docId;
@@ -278,7 +294,7 @@ var LowlaDB = (function(LowlaDB) {
       var dot = payload[i].clientNs.indexOf('.');
       var dbName = payload[i].clientNs.substring(0, dot);
       var collName = payload[i].clientNs.substring(dot + 1);
-      var collection = LowlaDB.collection(dbName, collName);
+      var collection = lowla.collection(dbName, collName);
       if (payload[i].deleted) {
         promises.push(collection._removeDocument(payload[i].id, true)
           .then(makeUpdateHandler(payload[i].id)));
@@ -299,7 +315,8 @@ var LowlaDB = (function(LowlaDB) {
   };
 
   SyncCoordinator.prototype.clearPushData = function(ids) {
-    return LowlaDB.utils.metaData()
+    var lowla = this.lowla;
+    return lowla._metadata()
       .then(function(metaData) {
         if (!metaData || !metaData.changes) {
           return;
@@ -317,12 +334,13 @@ var LowlaDB = (function(LowlaDB) {
           delete metaData.changes;
         }
 
-        return LowlaDB.utils.metaData(metaData);
+        return lowla._metadata(metaData);
       });
   };
 
   SyncCoordinator.prototype.pushChanges = function() {
     var syncCoord = this;
+    var lowla = this.lowla;
     var alreadySeen = {};
 
     function processPushData(pushPayload) {
@@ -352,13 +370,13 @@ var LowlaDB = (function(LowlaDB) {
           return;
         }
 
-        LowlaDB.emit('pushBegin');
+        lowla.emit('pushBegin');
         return processPushData(payload)
           .then(function(arg) {
-            LowlaDB.emit('pushEnd');
+            lowla.emit('pushEnd');
             return arg;
           }, function(err) {
-            LowlaDB.emit('pushEnd');
+            lowla.emit('pushEnd');
             throw err;
           });
 
@@ -371,5 +389,5 @@ var LowlaDB = (function(LowlaDB) {
   LowlaDB.SyncCoordinator = SyncCoordinator;
 
   return LowlaDB;
-})(LowlaDB || {});
+})(LowlaDB);
 

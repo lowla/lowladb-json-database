@@ -1,4 +1,4 @@
-var LowlaDB = (function(LowlaDB) {
+(function(LowlaDB) {
   'use strict';
 
   LowlaDB.Collection = Collection;
@@ -20,9 +20,11 @@ var LowlaDB = (function(LowlaDB) {
   return LowlaDB;
   ///////////////
 
-  function Collection(dbName, collectionName) {
+  function Collection(lowla, dbName, collectionName) {
     this.dbName = dbName;
     this.collectionName = collectionName;
+    this.lowla = lowla;
+    this.datastore = lowla.datastore;
   }
 
   function generateId() {
@@ -90,7 +92,7 @@ var LowlaDB = (function(LowlaDB) {
     var coll = this;
     var savedDoc = null;
     return new Promise(function(resolve, reject) {
-      LowlaDB.Datastore.transact(doUpdate, resolve, reject);
+      coll.datastore.transact(doUpdate, resolve, reject);
       function doUpdate(tx) {
         coll._updateDocumentInTx(tx, obj, flagEight, function(doc) {
           savedDoc = doc;
@@ -133,7 +135,7 @@ var LowlaDB = (function(LowlaDB) {
     /*jshint validthis:true */
     var coll = this;
     return new Promise(function(resolve, reject) {
-      LowlaDB.Datastore.transact(doUpdate, resolve, reject);
+      coll.datastore.transact(doUpdate, resolve, reject);
       function doUpdate(tx) {
         coll._removeDocumentInTx(tx, lowlaID, flagEight);
       }
@@ -196,7 +198,7 @@ var LowlaDB = (function(LowlaDB) {
         });
       });
 
-      LowlaDB.Datastore.transact(doInsert, resolve, reject);
+      coll.datastore.transact(doInsert, resolve, reject);
 
       function doInsert(tx) {
         var curInsert = 0;
@@ -259,7 +261,7 @@ var LowlaDB = (function(LowlaDB) {
     var coll = this;
     var savedObj = null;
     return new Promise(function(resolve, reject) {
-      LowlaDB.Datastore.transact(doFind, resolve, reject);
+      coll.datastore.transact(doFind, resolve, reject);
 
       function doFind(tx) {
         coll.find(filter)._applyFilterInTx(tx, updateDoc);
@@ -310,7 +312,7 @@ var LowlaDB = (function(LowlaDB) {
             return;
           }
 
-          LowlaDB.Datastore.transact(txFn, resolve, reject);
+          coll.datastore.transact(txFn, resolve, reject);
 
           function txFn(tx) {
             arr.map(function (doc) {
@@ -348,4 +350,4 @@ var LowlaDB = (function(LowlaDB) {
 
     return this.find(query).count(callback);
   }
-})(LowlaDB || {});
+})(LowlaDB);

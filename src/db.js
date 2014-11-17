@@ -1,5 +1,5 @@
 
-var LowlaDB = (function(LowlaDB) {
+(function(LowlaDB) {
   'use strict';
 
   // Public API
@@ -10,8 +10,9 @@ var LowlaDB = (function(LowlaDB) {
   return LowlaDB;
   ///////////////
 
-  function DB(dbName) {
+  function DB(lowla, dbName) {
     this.name = dbName;
+    this.datastore = lowla.datastore;
   }
 
   function collection(collectionName) {
@@ -21,6 +22,7 @@ var LowlaDB = (function(LowlaDB) {
 
   function collectionNames() {
     /* jshint validthis: true */
+    var datastore = this.datastore;
 
     var collection, options, callback;
     var args = Array.prototype.slice.call(arguments, 0);
@@ -48,7 +50,7 @@ var LowlaDB = (function(LowlaDB) {
     /////////////////////////////////
 
     function fetchNames(resolve, reject) {
-      LowlaDB.Datastore.scanDocuments({
+      datastore.scanDocuments({
         document: function(clientId) {
           if (clientId.indexOf(dbPrefix) === 0) {
             var dollar = clientId.indexOf('$');
@@ -95,4 +97,4 @@ var LowlaDB = (function(LowlaDB) {
     }
   }
 
-})(LowlaDB || {});
+})(LowlaDB);

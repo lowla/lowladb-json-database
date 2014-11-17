@@ -1,15 +1,12 @@
 testUtils.eachDatastore(function(dsName) {
   describe('LowlaDB Cursor (' + dsName + ')', function () {
-    beforeEach(testUtils.setUp);
-    afterEach(testUtils.tearDown);
-    beforeEach(function() {
-      LowlaDB.setDatastore(dsName);
-    });
+    beforeEach(testUtils.setUpFn(dsName));
+    afterEach(testUtils.tearDownFn(dsName));
 
     var coll, coll2;
     beforeEach(function () {
-      coll = LowlaDB.collection('dbName', 'TestColl');
-      coll2 = LowlaDB.collection('dbName', 'OtherColl');
+      coll = lowla.collection('dbName', 'TestColl');
+      coll2 = lowla.collection('dbName', 'OtherColl');
 
       return Promise.all([
         coll.insert([{a: 1}, {a: 2}, {a: 3}]),

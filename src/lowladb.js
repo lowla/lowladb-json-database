@@ -2,49 +2,82 @@
  * Created by michael on 9/22/14.
  */
 
-var LowlaDB = (function(LowlaDB) {
+(function(exports) {
   'use strict';
 
-  LowlaDB.datastores = LowlaDB.datastores || {};
+  // Public API
+  exports.LowlaDB = LowlaDB;
+  LowlaDB.registerDatastore = registerDatastore;
 
-  LowlaDB.registerDatastore = function(name, datastore) {
-    LowlaDB.datastores[name] = datastore;
-  };
+  LowlaDB.prototype.close = close;
+  LowlaDB.prototype.collection = collection;
+  LowlaDB.prototype.db = db;
+  LowlaDB.prototype.emit = emit;
+  LowlaDB.prototype.on = on;
+  LowlaDB.prototype.off = off;
+  LowlaDB.prototype.sync = sync;
 
-  LowlaDB.setDatastore = function(name) {
-    if (LowlaDB.datastores[name]) {
-      LowlaDB.Datastore = LowlaDB.datastores[name];
+  // Private API
+  LowlaDB._datastores = {};
+  LowlaDB._defaultOptions = { datastore: 'IndexedDB' };
+  LowlaDB.prototype._metadata = _metadata;
+  LowlaDB.prototype._cursorsOff = _cursorsOff;
+
+  return LowlaDB;
+  ///////////////
+
+  function LowlaDB(options) {
+    if (!(this instanceof LowlaDB)) {
+      return new LowlaDB(options);
     }
-    else {
-      throw Error('Unknown datastore: ' + name);
+
+    var config = this.config = LowlaDB._defaultOptions;
+    LowlaDB.utils.keys(options).forEach(function(key) {
+      config[key] = options[key];
+    });
+
+    this.datastore = LowlaDB._datastores[config.datastore];
+    if (!this.datastore) {
+      throw Error('Invalid or unavailable datastore: ' + config.datastore);
     }
-  };
 
-  LowlaDB.db = function (dbName) {
-    return new LowlaDB.DB(dbName);
-  };
+    this.events = {};
+    this.liveCursors = {};
+  }
 
-  LowlaDB.collection = function(dbName, collectionName) {
-    return new LowlaDB.Collection(dbName, collectionName);
-  };
+  function registerDatastore(name, datastore) {
+    LowlaDB._datastores[name] = datastore;
+  }
 
-  LowlaDB.sync = function(serverUrl, options) {
-    LowlaDB._syncCoordinator = new LowlaDB.SyncCoordinator(serverUrl, options);
+  function db(dbName) {
+    /* jshint validthis: true */
+    return new LowlaDB.DB(this, dbName);
+  }
+
+  function collection(dbName, collectionName) {
+    /* jshint validthis: true */
+    return new LowlaDB.Collection(this, dbName, collectionName);
+  }
+
+  function sync(serverUrl, options) {
+    /* jshint validthis: true */
+    var lowla = this;
+    lowla._syncCoordinator = new LowlaDB.SyncCoordinator(lowla, serverUrl, options);
     if (options && -1 == options.pollFrequency) {
       return;
     }
 
     var pushPull = function() {
-      LowlaDB.emit('syncBegin');
-      return LowlaDB._syncCoordinator.pushChanges()
+      lowla.emit('syncBegin');
+      return lowla._syncCoordinator.pushChanges()
         .then(function() {
-          return LowlaDB._syncCoordinator.fetchChanges();
+          return lowla._syncCoordinator.fetchChanges();
         })
         .then(function(arg) {
-          LowlaDB.emit('syncEnd');
+          lowla.emit('syncEnd');
           return arg;
         }, function(err) {
-          LowlaDB.emit('syncEnd');
+          lowla.emit('syncEnd');
           throw err;
         });
     };
@@ -62,22 +95,25 @@ var LowlaDB = (function(LowlaDB) {
     }, function (err) {
       throw err;
     });
-  };
+  }
 
-  var lowlaEvents = {};
-  LowlaDB.on = function(eventName, callback) {
+  function on(eventName, callback) {
+    /* jshint validthis: true */
+    var lowlaEvents = this.events;
     if (lowlaEvents[eventName]) {
       lowlaEvents[eventName].push(callback);
     }
     else {
       lowlaEvents[eventName] = [ callback ];
     }
-  };
+  }
 
-  LowlaDB.off = function(eventName, callback) {
+  function off(eventName, callback) {
+    /* jshint validthis: true */
+    var lowlaEvents = this.events;
     if (!callback) {
       if (!eventName) {
-        lowlaEvents = {};
+        this.events = {};
       }
       else {
         delete lowlaEvents[eventName];
@@ -89,22 +125,43 @@ var LowlaDB = (function(LowlaDB) {
         lowlaEvents[eventName].splice(index, 1);
       }
     }
-  };
+  }
 
-  LowlaDB.emit = function(eventName) {
+  function emit(eventName) {
+    /* jshint validthis: true */
+    var lowlaEvents = this.events;
     if (lowlaEvents[eventName]) {
       lowlaEvents[eventName].forEach(function(listener) {
         listener.apply(this);
       });
     }
-  };
+  }
 
-  LowlaDB.close = function() {
-    LowlaDB.Cursor.off();
-    LowlaDB.off();
-    LowlaDB.Datastore.close();
-  };
+  function close() {
+    /* jshint validthis: true */
+    this.off();
+    this._cursorsOff();
+    this.datastore.close();
+  }
 
-  return LowlaDB;
+  function _metadata(newMeta) {
+    /* jshint validthis: true */
+    var datastore = this.datastore;
+    if (newMeta) {
+      return new Promise(function(resolve, reject) {
+        datastore.updateDocument("$metadata", newMeta, resolve, reject);
+      });
+    }
+    else {
+      return new Promise(function (resolve, reject) {
+        datastore.loadDocument("$metadata", resolve, reject);
+      });
+    }
+  }
+
+  function _cursorsOff() {
+    /* jshint validthis: true */
+    this.liveCursors = {};
+  }
 }
-)(LowlaDB || {});
+)(typeof(exports) === 'object' ? exports : window);
