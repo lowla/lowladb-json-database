@@ -33,9 +33,11 @@
     var i = 0;
     var promises = [];
     var collections = {};
+    var maxSeq = 0;
 
     while (i < payload.length) {
       collections[payload[i].clientNs] = true;
+      maxSeq = Math.max(maxSeq, payload[i].sequence);
 
       if (payload[i].deleted) {
         promises.push(updateIfUnchanged(payload[i].id));
@@ -54,6 +56,8 @@
           collName = collName.substring(dbName.length + 1);
           LowlaDB.Cursor.notifyLive(lowla.collection(dbName, collName));
         });
+
+        return maxSeq;
       });
 
     function updateIfUnchanged(lowlaId, doc) {
@@ -103,21 +107,71 @@
     var syncCoord = this;
     var lowla = this.lowla;
     var ids = [];
-    payload.atoms.map(function(atom) { ids.push(atom.id); });
+    var seqs = [];
+    var updateSeq = true;
+    payload.atoms.map(function(atom) {
+      ids.push(atom.id);
+      seqs.push(atom.sequence);
+    });
+
     if (0 === ids.length) {
       return Promise.resolve();
+    }
+
+    function pullSomeDocuments(ids, offset) {
+      var payloadIds = ids.slice(0, Math.min(10, ids.length));
+
+      return Promise.resolve()
+        .then(function() {
+          return LowlaDB.utils.getJSON(syncCoord.urls.pull, { ids: payloadIds });
+        })
+        .then(function(pullPayload) {
+          if (!pullPayload.length) {
+            ids.splice(0, payloadIds.length);
+            seqs.splice(0, payloadIds.length);
+            updateSeq = false;
+          }
+          else {
+            var i = 0;
+            while (i < pullPayload.length) {
+              var idx = ids.indexOf(pullPayload[i].id);
+              if (-1 !== idx) {
+                ids.splice(idx, 1);
+                seqs.splice(idx, 1);
+              }
+
+              if (pullPayload[i].deleted) {
+                i++;
+              }
+              else {
+                i += 2;
+              }
+            }
+          }
+
+          return syncCoord.processPull(pullPayload);
+        })
+        .then(function() {
+          if (updateSeq && seqs.length) {
+            return SyncCoordinator._updateSequence(lowla, seqs[0]);
+          }
+        })
+        .then(function() {
+          if (ids.length) {
+            return pullSomeDocuments(ids, offset);
+          }
+        });
     }
 
     lowla.emit('pullBegin');
     return Promise.resolve()
       .then(function() {
-        return LowlaDB.utils.getJSON(syncCoord.urls.pull, { ids: ids });
-      })
-      .then(function(pullPayload) {
-        return syncCoord.processPull(pullPayload);
+        return pullSomeDocuments(ids, 0);
       })
       .then(function() {
-        return SyncCoordinator._updateSequence(lowla, payload.sequence);
+        if (updateSeq) {
+          return SyncCoordinator._updateSequence(lowla, payload.sequence);
+        }
       })
       .then(function(arg) {
         lowla.emit('pullEnd');

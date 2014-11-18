@@ -17,21 +17,32 @@ testUtils.eachDatastore(function(dsName) {
 
     var makeChangesResponse = function () {
       var args = Array.prototype.slice.call(arguments);
-      var answer = {atoms: [], sequence: 1};
+      var seq = 2;
+      if (args.length && typeof(args[0]) === 'number') {
+        seq = args[0];
+        args.shift();
+      }
+
+      var answer = {atoms: [], sequence: seq};
       args.map(function (id) {
+        var clientNs = 'dbName.collectionOne';
+        if (-1 !== id.indexOf('$')) {
+          clientNs = id.substring(0, id.indexOf('$'));
+        }
+        else {
+          id = clientNs + '$' + id;
+        }
+
         answer.atoms.push({
-          sequence: 1,
+          sequence: seq - 1,
           id: id,
           version: 1,
-          clientNs: id.substring(0, id.indexOf('$')),
+          clientNs: clientNs,
           deleted: false
         });
       });
 
-      return {
-        obj: answer,
-        json: JSON.stringify(answer)
-      };
+      return answer;
     };
 
     var makeAdapterResponse = function () {
@@ -76,11 +87,11 @@ testUtils.eachDatastore(function(dsName) {
 
       it('processes responses from the Syncer', function () {
         var processChanges = lowla._syncCoordinator.processChanges = testUtils.sandbox.stub();
-        getJSON.returns(Promise.resolve(makeChangesResponse().obj));
+        getJSON.returns(Promise.resolve(makeChangesResponse()));
         var promise = lowla._syncCoordinator.fetchChanges();
         return promise.then(function () {
           processChanges.callCount.should.equal(1);
-          processChanges.getCall(0).should.have.been.calledWith({atoms: [], sequence: 1});
+          processChanges.getCall(0).should.have.been.calledWith({atoms: [], sequence: 2});
         });
       });
 
@@ -93,7 +104,7 @@ testUtils.eachDatastore(function(dsName) {
 
       it('requests changes from Adapter', function () {
         getJSON.returns(Promise.resolve({}));
-        return lowla._syncCoordinator.processChanges(makeChangesResponse('dbName.collectionOne$1234').obj)
+        return lowla._syncCoordinator.processChanges(makeChangesResponse('dbName.collectionOne$1234'))
           .then(function () {
             getJSON.callCount.should.equal(1);
             getJSON.getCall(0).should.have.been.calledWith('http://lowla.io/_lowla/pull', {ids: ['dbName.collectionOne$1234']});
@@ -104,7 +115,9 @@ testUtils.eachDatastore(function(dsName) {
         var pullResponse = makeAdapterResponse({_id: '1234', a: 1, b: 22, text: 'Received', _version: 1});
         getJSON.returns(Promise.resolve(pullResponse));
         var processPull = lowla._syncCoordinator.processPull = testUtils.sandbox.stub();
-        var promise = lowla._syncCoordinator.processChanges({atoms: ['dbName.collectionOne$1234'], sequence: 7});
+        var changesResponse = makeChangesResponse('1234');
+        changesResponse.sequence = 7;
+        var promise = lowla._syncCoordinator.processChanges(changesResponse);
         return promise.then(function (newSeq) {
           processPull.callCount.should.equal(1);
           processPull.getCall(0).should.have.been.calledWith(pullResponse);
@@ -294,6 +307,75 @@ testUtils.eachDatastore(function(dsName) {
             reader.readAsText(doc.val);
           })
           .catch(done);
+      });
+
+      it('pulls multiple documents ten at a time', function() {
+        var changes = makeChangesResponse('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15');
+        getJSON.onFirstCall().returns(Promise.resolve(makeAdapterResponse({_id: '1'}, {_id: '2' }, { _id: '3' }, {_id: '4' }, {_id: '5' }, {_id: '6'}, {_id: '7'}, {_id: '8' }, {_id: '9'}, {_id: '10' })));
+        getJSON.onSecondCall().returns(Promise.resolve(makeAdapterResponse({_id: '11'}, {_id: '12' }, { _id: '13' }, {_id: '14' }, {_id: '15' })));
+        var processPull = testUtils.sandbox.spy(lowla._syncCoordinator, 'processPull');
+        return lowla._syncCoordinator.processChanges(changes)
+          .then(function() {
+            getJSON.callCount.should.equal(2);
+            getJSON.args[0][1].ids.length.should.equal(10);
+            getJSON.args[1][1].ids.length.should.equal(5);
+            processPull.callCount.should.equal(2);
+            return coll.find().toArray();
+          })
+          .then(function(arr) {
+            arr.length.should.equal(15);
+          });
+      });
+
+      it('re-pulls documents it did not receive from a pull request', function() {
+        var changes = makeChangesResponse('1', '2', '3', '4');
+        getJSON.onFirstCall().returns(Promise.resolve(makeAdapterResponse({_id: '1'}, {_id: '3'})));
+        getJSON.onSecondCall().returns(Promise.resolve(makeAdapterResponse({_id: '2'}, {_id: '4'})));
+        return lowla._syncCoordinator.processChanges(changes)
+          .then(function() {
+            getJSON.callCount.should.equals(2);
+            getJSON.args[0][1].ids.length.should.equal(4);
+            getJSON.args[1][1].ids.length.should.equal(2);
+            getJSON.args[1][1].ids[0].should.equal('dbName.collectionOne$2');
+            getJSON.args[1][1].ids[1].should.equal('dbName.collectionOne$4');
+          });
+      });
+
+      it('does not change sequence if all changed IDs are not pulled', function() {
+        var changes = makeChangesResponse(5, '1', '2', '3', '4');
+        getJSON.onFirstCall().returns(Promise.resolve(makeAdapterResponse({_id: '1'}, {_id: '3'})));
+        getJSON.onSecondCall().returns(Promise.resolve([]));
+        return lowla._metadata({ sequence: 3 })
+          .then(function() {
+            return lowla._syncCoordinator.processChanges(changes);
+          })
+          .then(function() {
+            getJSON.callCount.should.equals(2);
+            getJSON.args[0][1].ids.length.should.equal(4);
+            getJSON.args[1][1].ids.length.should.equal(2);
+            getJSON.args[1][1].ids[0].should.equal('dbName.collectionOne$2');
+            getJSON.args[1][1].ids[1].should.equal('dbName.collectionOne$4');
+            return lowla._metadata();
+          })
+          .then(function(doc) {
+            doc.sequence.should.equal(4);
+          });
+      });
+
+      it('does not change sequence if any changed IDs are not pulled', function() {
+        var changes = makeChangesResponse(25, '1', '2', '3', '4');
+        getJSON.onFirstCall().returns(Promise.resolve([]));
+        return lowla._metadata({ sequence: 17 })
+          .then(function() {
+            return lowla._syncCoordinator.processChanges(changes);
+          })
+          .then(function() {
+            getJSON.callCount.should.equals(1);
+            return lowla._metadata();
+          })
+          .then(function(doc) {
+            doc.sequence.should.equal(17);
+          });
       });
     });
 
@@ -494,7 +576,7 @@ testUtils.eachDatastore(function(dsName) {
           .then(function (obj) {
             var objId = obj._id;
             getJSON.onFirstCall().returns(Promise.resolve(makeAdapterResponse({_id: objId, a: 1})));
-            getJSON.onSecondCall().returns(Promise.resolve({sequence: 2, atoms: ['dbName.TestCollection$' + objId]}));
+            getJSON.onSecondCall().returns(Promise.resolve(makeChangesResponse(2, objId)));
             getJSON.onThirdCall().returns(Promise.resolve(makeAdapterResponse({_id: objId, a: 1})));
 
             lowla.sync('http://lowla.io', {pollFrequency: 0});
@@ -505,7 +587,7 @@ testUtils.eachDatastore(function(dsName) {
       it('fires pullEnd after an error', function() {
         var pullEnd = testUtils.sandbox.stub();
         lowla.on('pullEnd', pullEnd);
-        var changes = makeChangesResponse('dbName.collectionOne$1234').obj;
+        var changes = makeChangesResponse('dbName.collectionOne$1234');
         getJSON.onFirstCall().returns(Promise.resolve(changes));
         getJSON.onSecondCall().throws(Error('Bad request'));
         return lowla._syncCoordinator.fetchChanges()
