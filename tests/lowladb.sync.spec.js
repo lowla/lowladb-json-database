@@ -607,5 +607,78 @@ testUtils.eachDatastore(function(dsName) {
           });
       });
     });
+
+    describe('Load', function() {
+      it('can load documents from an object', function() {
+        var resp = makeAdapterResponse({ _id: '1234', a: 1}, { _id: '2345', a: 2}, { _id: '3456', a: 3});
+        return lowla.load({ sequence: 5, documents: [ resp ]})
+          .then(function() {
+            return coll.find().toArray();
+          })
+          .then(function(arr) {
+            arr.length.should.equal(3);
+            return lowla._metadata();
+          })
+          .then(function(metaDoc) {
+            metaDoc.sequence.should.equal(5);
+          });
+      });
+
+      it('can load many documents from a url', function() {
+        var payload = { sequence: 22, documents: [ ] };
+        var docs = [];
+        for (var i = 1; i <= 25; i++) {
+          docs.push( { _id: 'fakeId' + i, i: i });
+          if (docs.length === 10) {
+            payload.documents.push(makeAdapterResponse(docs));
+            docs = [];
+          }
+        }
+        if (docs.length) {
+          payload.documents.push(makeAdapterResponse(docs));
+        }
+
+        payload.documents[0].should.have.length(20);
+        payload.documents[1].should.have.length(20);
+        payload.documents[2].should.have.length(10);
+
+        getJSON.returns(Promise.resolve(payload));
+
+        return lowla.load('http://lowla.io/my-data.json')
+          .then(function() {
+            return coll.find().toArray();
+          })
+          .then(function(arr) {
+            arr.length.should.equal(25);
+            return lowla._metadata();
+          })
+          .then(function(metaDoc) {
+            metaDoc.sequence.should.equal(22);
+          });
+      });
+
+      it('invokes a given callback', function(done) {
+        var resp = makeAdapterResponse({ _id: '1234', a: 1}, { _id: '2345', a: 2}, { _id: '3456', a: 3});
+        return lowla.load({ sequence: 5, documents: [ resp ]}, testUtils.cb(done, function(err, res) {
+          should.not.exist(err);
+          res.should.equal(5);
+        }))
+          .then(null, done);
+      });
+
+      it('fails appropriately when URL is unavailable', function(done) {
+        getJSON.throws(Error('Invalid URL'));
+        lowla.load('http://lowla.io/my-data.json')
+          .should.eventually.be.rejectedWith(Error, /Invalid URL/)
+          .then(function() {
+            lowla.load('http://lowla.io/my-data.json', testUtils.cb(done, function (err, seq) {
+              should.not.exist(seq);
+              err.should.match(/Invalid URL/);
+            }));
+          })
+          .then(null, done);
+      });
+
+    });
   });
 });

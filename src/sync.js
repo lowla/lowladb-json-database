@@ -26,8 +26,10 @@
   };
 
   SyncCoordinator.prototype.processPull = function(payload) {
-    var datastore = this.datastore;
-    var lowla = this.lowla;
+    return SyncCoordinator._processPullPayload(this.lowla, this.datastore, payload);
+  };
+
+  SyncCoordinator._processPullPayload = function(lowla, datastore, payload) {
     var i = 0;
     var promises = [];
     var collections = {};
@@ -81,6 +83,22 @@
     }
   };
 
+  SyncCoordinator._updateSequence = function(lowla, sequence) {
+    return new Promise(function(resolve, reject) {
+      lowla.datastore.loadDocument("$metadata", {
+        document: function(doc) {
+          if (!doc) {
+            doc = {};
+          }
+          doc.sequence = sequence;
+          lowla.datastore.updateDocument("$metadata", doc, function() {
+            resolve(sequence);
+          }, reject);
+        }
+      });
+    });
+  };
+
   SyncCoordinator.prototype.processChanges = function(payload) {
     var syncCoord = this;
     var lowla = this.lowla;
@@ -99,19 +117,7 @@
         return syncCoord.processPull(pullPayload);
       })
       .then(function() {
-        return new Promise(function(resolve, reject) {
-          lowla.datastore.loadDocument("$metadata", {
-            document: function(doc) {
-              if (!doc) {
-                doc = {};
-              }
-              doc.sequence = payload.sequence;
-              lowla.datastore.updateDocument("$metadata", doc, function() {
-                resolve(payload.sequence);
-              }, reject);
-            }
-          });
-        });
+        return SyncCoordinator._updateSequence(lowla, payload.sequence);
       })
       .then(function(arg) {
         lowla.emit('pullEnd');

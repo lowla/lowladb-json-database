@@ -216,3 +216,15 @@ These events are emitted at the beginning and end of a polled sync operation, ev
 ### pullBegin / pullEnd ###
 `pullBegin` will be emitted when LowlaDB has received information from the Syncer that documents need to be retrieved from the server.  `pullEnd` will be emitted after LowlaDB has requested and received those documents.
 
+## Bulk Loading ##
+
+To populate the local datastore with documents created from a previous `dump` operation (todo: see lowladb-cli reference for dump), use the `load` method.  You can specify either a URL to retrieve the JSON file created by `dump`, or a Javascript object if the dump result has been injected into the page by your server.
+
+```js
+lowla.load('http://my.server.org/data-dump.json');
+
+var docDump = { ... }; // injected JSON file
+lowla.load(docDump);
+```
+
+The `load` function takes an optional callback and also returns a promise that will be called/resolved once all the documents have been saved in the local datastore.

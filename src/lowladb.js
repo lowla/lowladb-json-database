@@ -13,6 +13,7 @@
   LowlaDB.prototype.collection = collection;
   LowlaDB.prototype.db = db;
   LowlaDB.prototype.emit = emit;
+  LowlaDB.prototype.load = load;
   LowlaDB.prototype.on = on;
   LowlaDB.prototype.off = off;
   LowlaDB.prototype.sync = sync;
@@ -22,7 +23,7 @@
   LowlaDB._defaultOptions = { datastore: 'IndexedDB' };
   LowlaDB.prototype._metadata = _metadata;
   LowlaDB.prototype._cursorsOff = _cursorsOff;
-
+  LowlaDB.prototype._processLoadPayload = _processLoadPayload;
   return LowlaDB;
   ///////////////
 
@@ -142,6 +143,52 @@
     this.off();
     this._cursorsOff();
     this.datastore.close();
+  }
+
+  function load(urlOrObj, callback) {
+    /* jshint validthis: true */
+    var lowla = this;
+    return Promise.resolve()
+      .then(function() {
+        if (typeof(urlOrObj) === 'string') {
+          return LowlaDB.utils.getJSON(urlOrObj).then(function (payload) {
+            return lowla._processLoadPayload(payload);
+          });
+        }
+        else {
+          return lowla._processLoadPayload(urlOrObj);
+        }
+      })
+      .then(function(res) {
+        if (callback) {
+          callback(null, res);
+        }
+        return res;
+      }, function(err) {
+        if (callback) {
+          callback(err);
+        }
+        throw err;
+      });
+  }
+
+  function _processLoadPayload(payload, offset) {
+    /* jshint validthis: true */
+    var lowla = this;
+    if (!offset) {
+      offset = 0;
+    }
+
+    return LowlaDB.SyncCoordinator._processPullPayload(lowla, lowla.datastore, payload.documents[offset])
+      .then(function() {
+        ++offset;
+        if (offset < payload.documents.length) {
+          return lowla._processLoadPayload(payload, offset);
+        }
+      })
+      .then(function() {
+        return LowlaDB.SyncCoordinator._updateSequence(lowla, payload.sequence);
+      });
   }
 
   function _metadata(newMeta) {
