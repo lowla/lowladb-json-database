@@ -111,6 +111,8 @@
     obj._id = obj._id || generateId();
     var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + obj._id;
 
+    coll.lowla.emit('_saveHook', obj, lowlaID);
+
     if (flagEight) {
       saveOnly(tx);
     }

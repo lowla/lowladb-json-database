@@ -534,6 +534,63 @@ testUtils.eachDatastore(function(dsName) {
             should.not.exist(payload);
           });
       });
+
+      it('will not overwrite documents from pull response if modified locally', function() {
+        getJSON.restore();
+        getJSON = testUtils.sandbox.stub(LowlaDB.utils, 'getJSON', function() {
+          return coll.findAndModify({_id: '1234'}, {$set: { a: 5 }})
+            .then(function(obj) {
+              return makeAdapterResponse({_id: '1234', a: 3});
+            });
+        });
+
+        return coll.insert({_id: '1234', a: 1})
+          .then(function() {
+            return lowla._syncCoordinator.pushChanges();
+          })
+          .then(function() {
+            return coll.findOne({_id: '1234'});
+          })
+          .then(function(obj) {
+            obj.a.should.equal(5);
+            return lowla._syncCoordinator.collectPushData([]);
+          })
+          .then(function(payload) {
+            payload.documents.should.have.length(1);
+            payload.documents[0]._lowla.id.should.equal('dbName.collectionOne$1234');
+            payload.documents[0].ops.$set.a.should.equal(5);
+          });
+      });
+
+      it('will overwrite modified documents on the second pull', function() {
+        getJSON.restore();
+        getJSON = testUtils.sandbox.stub(LowlaDB.utils, 'getJSON', function() {
+          getJSON.restore();
+          testUtils.sandbox.stub(LowlaDB.utils, 'getJSON').returns(Promise.resolve(makeAdapterResponse({_id: '1234', a: 7})));
+
+          return coll.findAndModify({_id: '1234'}, {$set: { a: 5 }})
+            .then(function() {
+              return makeAdapterResponse({_id: '1234', a: 3});
+            });
+        });
+        return coll.insert({_id: '1234', a: 1})
+          .then(function() {
+            return lowla._syncCoordinator.pushChanges();
+          })
+          .then(function() {
+            return coll.findOne({_id: '1234'});
+          })
+          .then(function(obj) {
+            obj.a.should.equal(5);
+            return lowla._syncCoordinator.pushChanges();
+          })
+          .then(function() {
+            return coll.findOne({_id: '1234'});
+          })
+          .then(function(obj) {
+            obj.a.should.equal(7);
+          });
+      });
     });
 
     describe('Events', function () {
@@ -585,6 +642,9 @@ testUtils.eachDatastore(function(dsName) {
       });
 
       it('fires pullEnd after an error', function() {
+        // silence the console message
+        var log = testUtils.sandbox.stub(console, 'log');
+
         var pullEnd = testUtils.sandbox.stub();
         lowla.on('pullEnd', pullEnd);
         var changes = makeChangesResponse('dbName.collectionOne$1234');
@@ -593,10 +653,14 @@ testUtils.eachDatastore(function(dsName) {
         return lowla._syncCoordinator.fetchChanges()
           .then(function() {
             pullEnd.callCount.should.equal(1);
+            log.callCount.should.equal(1);
           });
       });
 
       it('fires pushEnd after an error', function() {
+        // silence the console message
+        var log = testUtils.sandbox.stub(console, 'log');
+
         var pushEnd = testUtils.sandbox.stub();
         lowla.on('pushEnd', pushEnd);
         getJSON.throws(Error('Bad request'));
@@ -606,6 +670,7 @@ testUtils.eachDatastore(function(dsName) {
           })
           .then(function() {
             pushEnd.callCount.should.equal(1);
+            log.callCount.should.equal(1);
           });
       });
     });

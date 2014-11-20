@@ -128,12 +128,14 @@
     }
   }
 
-  function emit(eventName) {
+  function emit() {
     /* jshint validthis: true */
+    var args = Array.prototype.slice.call(arguments);
+    var eventName = args.shift();
     var lowlaEvents = this.events;
     if (lowlaEvents[eventName]) {
       lowlaEvents[eventName].forEach(function(listener) {
-        listener.apply(this);
+        listener.apply(listener, args);
       });
     }
   }

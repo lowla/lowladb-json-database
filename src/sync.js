@@ -340,8 +340,9 @@
     });
   };
 
-  SyncCoordinator.prototype.processPushResponse = function(payload) {
+  SyncCoordinator.prototype.processPushResponse = function(payload, savedDuringPush) {
     var lowla = this.lowla;
+    savedDuringPush = savedDuringPush || [];
     var makeUpdateHandler = function(docId) {
       return function() {
         return docId;
@@ -351,6 +352,11 @@
     var i = 0;
     var promises = [];
     while (i < payload.length) {
+      // Any documents modified by the user while waiting for a Push response from the server should not be overwritten.
+      if (-1 !== savedDuringPush.indexOf(payload[i].id)) {
+        i += payload[i].deleted ? 1 : 2;
+        continue;
+      }
       var dot = payload[i].clientNs.indexOf('.');
       var dbName = payload[i].clientNs.substring(0, dot);
       var collName = payload[i].clientNs.substring(dot + 1);
@@ -402,6 +408,7 @@
     var syncCoord = this;
     var lowla = this.lowla;
     var alreadySeen = {};
+    var savedDuringPush = [];
 
     function processPushData(pushPayload) {
       if (!pushPayload) {
@@ -413,7 +420,7 @@
           return LowlaDB.utils.getJSON(syncCoord.urls.push, pushPayload);
         })
         .then(function(response) {
-          return syncCoord.processPushResponse(response);
+          return syncCoord.processPushResponse(response, savedDuringPush);
         })
         .then(function(updatedIDs) {
           return syncCoord.clearPushData(updatedIDs);
@@ -424,18 +431,25 @@
         .then(processPushData);
     }
 
+    function saveHook(obj, lowlaId) {
+      savedDuringPush.push(lowlaId);
+    }
+
     return this.collectPushData(alreadySeen)
       .then(function(payload) {
         if (!payload) {
           return;
         }
 
+        lowla.on('_saveHook', saveHook);
         lowla.emit('pushBegin');
         return processPushData(payload)
           .then(function(arg) {
+            lowla.off('_saveHook', saveHook);
             lowla.emit('pushEnd');
             return arg;
           }, function(err) {
+            lowla.off('_saveHook', saveHook);
             lowla.emit('pushEnd');
             throw err;
           });
