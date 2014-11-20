@@ -480,6 +480,25 @@ testUtils.eachDatastore(function(dsName) {
           });
       });
 
+      it('will send deletes on push if local document was never sent', function() {
+        return coll.insert({_id: '1234', a: 1})
+          .then(function() {
+            return coll.remove({_id: '1234'});
+          })
+          .then(function() {
+            return lowla._syncCoordinator.collectPushData();
+          })
+          .then(function(payload) {
+            // Lowla should still send deletes for new documents it removed before pushing; it is up to the server ot
+            // ignore these "empty" deletes.
+            // This behavior is necessary to properly handle a case where a new document is sent to the server and is
+            // deleted before the Push response is returned.
+            payload.documents.should.have.length(1);
+            payload.documents[0]._lowla.id.should.equal('dbName.collectionOne$1234');
+            payload.documents[0]._lowla.deleted.should.equal(true);
+          });
+      });
+
       it('can process a push response from adapter', function () {
         var pushResponse = makeAdapterResponse({_id: '1234', a: 2, b: 5});
         return lowla._syncCoordinator.processPushResponse(pushResponse)
@@ -589,6 +608,33 @@ testUtils.eachDatastore(function(dsName) {
           })
           .then(function(obj) {
             obj.a.should.equal(7);
+          });
+      });
+
+      it('will not recreate documents that were removed before pull response', function() {
+        getJSON.restore();
+        getJSON = testUtils.sandbox.stub(LowlaDB.utils, 'getJSON', function() {
+          return coll.remove({_id: '1234'})
+            .then(function(obj) {
+              return makeAdapterResponse({_id: '1234', a: 3});
+            });
+        });
+
+        return coll.insert({_id: '1234', a: 1})
+          .then(function() {
+            return lowla._syncCoordinator.pushChanges();
+          })
+          .then(function() {
+            return coll.findOne({_id: '1234'});
+          })
+          .then(function(obj) {
+            should.not.exist(obj);
+            return lowla._syncCoordinator.collectPushData([]);
+          })
+          .then(function(payload) {
+            payload.documents.should.have.length(1);
+            payload.documents[0]._lowla.id.should.equal('dbName.collectionOne$1234');
+            payload.documents[0]._lowla.deleted.should.equal(true);
           });
       });
     });
