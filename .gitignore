@@ -1,4 +1,3 @@
 *.iml
 node_modules
-examples/todomvc/bower_components
 dist

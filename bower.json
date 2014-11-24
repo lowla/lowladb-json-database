@@ -1,0 +1,16 @@
+{
+  "name": "lowladb",
+  "description": "The LowlaDB client library for modern browsers.",
+  "version": "0.0.1",
+  "license": "MIT",
+  "main": "dist/lowladb.js",
+  "ignore": [
+    "src",
+    "tests",
+    ".gitignore",
+    ".travis.yml",
+    "Gruntfile.js",
+    "karma.conf.js",
+    "package.json"
+  ]
+}
