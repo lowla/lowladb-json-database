@@ -33,7 +33,7 @@ lowladb <cmd> -h
 
 <div id="CmdDump">
 ### lowladb dump ###
-Exports LowlaDB documents to a file. The exported file can be used by the LowlaDB browser client to import documents into its local data storage. See the LowlaDB Browser [documentation](/browser.html#Bulk) for more details.
+Exports LowlaDB documents to a file. The exported file can be used by the LowlaDB browser client to import documents into its local data storage. See the LowlaDB Browser [documentation](browser.html#Bulk) for more details.
 
 `lowladb dump` takes the following arguments:
 

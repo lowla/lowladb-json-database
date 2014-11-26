@@ -267,7 +267,7 @@ These events are emitted at the beginning and end of a polled sync operation, ev
     
 ## Bulk Loading ##
 
-To populate the local datastore with documents created from a previous `dump` [command](/cli.html#CmdDump), use the `load` method.  You can specify either a URL to retrieve the JSON file created by `dump`, or a Javascript object if the dump result has been injected into the page by your server.
+To populate the local datastore with documents created from a previous `dump` [command](cli.html#CmdDump), use the `load` method.  You can specify either a URL to retrieve the JSON file created by `dump`, or a Javascript object if the dump result has been injected into the page by your server.
 
 {% highlight javascript %}
 lowla.load('http://my.server.org/data-dump.json');
