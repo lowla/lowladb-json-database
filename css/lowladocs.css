@@ -15,9 +15,24 @@
 }
 
 .affix {
-	padding: 1em 0;
-	top: 0px;
-	position: fixed;
+/*    padding: 1em 0;*/
+    position: static;
+}
+
+@media (min-width: 768px) and (min-height: 475px) {
+    .affix {
+        position: fixed;
+    }
+    
+    .affix,
+    .affix-top {
+        top: 0;
+    }
+
+    .affix-top,
+    .affix-bottom {
+        position: absolute;
+    }
 }
 
 /* all links */
