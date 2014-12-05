@@ -319,7 +319,7 @@
           function txFn(tx) {
             arr.map(function (doc) {
               var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + doc._id;
-              lowla.emit('_saveHook', null, lowlaID);
+              coll.lowla.emit('_saveHook', null, lowlaID);
               coll._removeDocumentInTx(tx, lowlaID, false, function () {
                 countRemoved = countRemoved + 1;
               });
