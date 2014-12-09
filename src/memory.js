@@ -11,6 +11,7 @@
   MemoryDatastore.prototype.loadDocument = loadDocument;
   MemoryDatastore.prototype.updateDocument = updateDocument;
   MemoryDatastore.prototype.close = close;
+  MemoryDatastore.prototype.countAll = countAll;
   
   LowlaDB.registerDatastore('Memory', new MemoryDatastore());
   return LowlaDB;
@@ -84,6 +85,16 @@
   function remove(clientNs, lowlaID, doneFn) {
     delete data[clientNs + "$" + lowlaID];
     doneFn();
+  }
+  
+  function countAll(clientNs, doneFn) {
+    var count = 0;
+    LowlaDB.utils.keys(data).forEach(function(key) {
+      if (data[key].clientNs === clientNs) {
+        ++count;
+      }
+    });
+    doneFn(count);
   }
 
   function transact(callback, doneCallback, errCallback) {

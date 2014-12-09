@@ -240,6 +240,23 @@
     }
   };
 
+  Datastore.prototype.countAll = function(clientNs, doneFn, errFn) {
+    db().then(function(db) {
+      var trans = db.transaction(["lowla"], "readwrite");
+      var store = trans.objectStore("lowla");
+      var keyRange = IDBKeyRange.bound(clientNs + '$', clientNs + '%', false, true);
+      var request = store.count(keyRange);
+      request.onsuccess = function() {
+        doneFn(request.result);
+      };
+      if (errFn) {
+        request.onerror = function(e) {
+          errFn(e);
+        };
+      }
+    });
+  };
+  
   LowlaDB.registerDatastore('IndexedDB', new Datastore());
 
   return LowlaDB;

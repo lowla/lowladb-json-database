@@ -276,7 +276,7 @@ testUtils.eachDatastore(function(dsName) {
       });
 
       it('fails when filter errors', function (done) {
-        testUtils.sandbox.stub(LowlaDB.Cursor.prototype, '_applyFilter').throws(Error('Invalid filter'));
+        testUtils.sandbox.stub(coll.datastore, 'countAll').throws(Error('Invalid filter'));
         coll
           .find()
           .count()

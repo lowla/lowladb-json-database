@@ -860,17 +860,35 @@
       cursor = this.cloneWithOptions({skip: 0, limit: 0});
     }
 
-    return cursor.toArray().then(function(arr) {
-      if (callback) {
-        callback(null, arr.length);
+    if (cursor._filter) {
+      return cursor.toArray().then(function(arr) {
+        return success(arr.length);
+      }, error);
+    }
+    else {
+      return new Promise(function(resolve, reject) {
+        var coll = cursor._collection;
+        var clientNs = coll.dbName + '.' + coll.collectionName;
+        cursor._collection.datastore.countAll(clientNs, resolve);
+      })
+      .then(success, error);
+    }
+    
+    function success(count) {
+      if (0 !== cursor._options.limit) {
+        count = Math.min(count, cursor._options.limit);
       }
-      return arr.length;
-    }, function(err) {
+      if (callback) {
+        callback(null, count);
+      }
+      return count;
+    }
+    function error(err) {
       if (callback) {
         callback(err);
       }
       throw err;
-    });
+    }
   }
 
 })(LowlaDB);;/**
@@ -1115,6 +1133,23 @@
     }
   };
 
+  Datastore.prototype.countAll = function(clientNs, doneFn, errFn) {
+    db().then(function(db) {
+      var trans = db.transaction(["lowla"], "readwrite");
+      var store = trans.objectStore("lowla");
+      var keyRange = IDBKeyRange.bound(clientNs + '$', clientNs + '%', false, true);
+      var request = store.count(keyRange);
+      request.onsuccess = function() {
+        doneFn(request.result);
+      };
+      if (errFn) {
+        request.onerror = function(e) {
+          errFn(e);
+        };
+      }
+    });
+  };
+  
   LowlaDB.registerDatastore('IndexedDB', new Datastore());
 
   return LowlaDB;
@@ -1228,6 +1263,7 @@
   MemoryDatastore.prototype.loadDocument = loadDocument;
   MemoryDatastore.prototype.updateDocument = updateDocument;
   MemoryDatastore.prototype.close = close;
+  MemoryDatastore.prototype.countAll = countAll;
   
   LowlaDB.registerDatastore('Memory', new MemoryDatastore());
   return LowlaDB;
@@ -1301,6 +1337,16 @@
   function remove(clientNs, lowlaID, doneFn) {
     delete data[clientNs + "$" + lowlaID];
     doneFn();
+  }
+  
+  function countAll(clientNs, doneFn) {
+    var count = 0;
+    LowlaDB.utils.keys(data).forEach(function(key) {
+      if (data[key].clientNs === clientNs) {
+        ++count;
+      }
+    });
+    doneFn(count);
   }
 
   function transact(callback, doneCallback, errCallback) {

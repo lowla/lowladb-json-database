@@ -281,17 +281,35 @@
       cursor = this.cloneWithOptions({skip: 0, limit: 0});
     }
 
-    return cursor.toArray().then(function(arr) {
-      if (callback) {
-        callback(null, arr.length);
+    if (cursor._filter) {
+      return cursor.toArray().then(function(arr) {
+        return success(arr.length);
+      }, error);
+    }
+    else {
+      return new Promise(function(resolve, reject) {
+        var coll = cursor._collection;
+        var clientNs = coll.dbName + '.' + coll.collectionName;
+        cursor._collection.datastore.countAll(clientNs, resolve);
+      })
+      .then(success, error);
+    }
+    
+    function success(count) {
+      if (0 !== cursor._options.limit) {
+        count = Math.min(count, cursor._options.limit);
       }
-      return arr.length;
-    }, function(err) {
+      if (callback) {
+        callback(null, count);
+      }
+      return count;
+    }
+    function error(err) {
       if (callback) {
         callback(err);
       }
       throw err;
-    });
+    }
   }
 
 })(LowlaDB);
