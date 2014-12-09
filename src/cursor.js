@@ -60,6 +60,8 @@
   }
 
   function docCompareFunc(sort, a, b) {
+    a = a.document;
+    b = b.document;
     if (a.hasOwnProperty(sort)) {
       if (!b.hasOwnProperty(sort)) {
         return 1;
@@ -80,13 +82,13 @@
     /* jshint validthis:true */
     var data = [];
     var coll = this._collection;
-    var clientIdPrefix = coll.dbName + '.' + coll.collectionName + '$';
+    var clientNs = coll.dbName + '.' + coll.collectionName;
     var cursor = this;
 
     tx.scan(collectDocs, processDocs);
 
-    function collectDocs(clientId, doc) {
-      if (clientId.indexOf(clientIdPrefix) === 0 && filterApplies(cursor._filter, doc)) {
+    function collectDocs(doc) {
+      if (doc.clientNs === clientNs && filterApplies(cursor._filter, doc.document)) {
         data.push(doc);
       }
     }
@@ -102,7 +104,7 @@
       }
 
       if (data.length && cursor._options.showPending) {
-        tx.load("$metadata", loadMetaForPending);
+        tx.load("", "$metadata", loadMetaForPending);
       }
       else {
         try {
@@ -117,7 +119,7 @@
     function loadMetaForPending(metaDoc, tx) {
       if (metaDoc && metaDoc.changes) {
         data.forEach(function(doc) {
-          doc.$pending = metaDoc.changes.hasOwnProperty(clientIdPrefix + doc._id);
+          doc.document.$pending = metaDoc.changes.hasOwnProperty(doc.lowlaId);
         });
       }
 
@@ -235,7 +237,7 @@
     try {
       this._applyFilter().then(function (arr) {
         arr.forEach(function (doc) {
-          callback(null, doc);
+          callback(null, doc.document);
         });
       });
     }
@@ -252,6 +254,9 @@
         return cursor._applyFilter();
       })
       .then(function(filtered) {
+        filtered = filtered.map(function(doc) {
+          return doc.document;
+        });
         if (callback) {
           callback(null, filtered);
         }

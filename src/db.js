@@ -51,11 +51,9 @@
 
     function fetchNames(resolve, reject) {
       datastore.scanDocuments({
-        document: function(clientId) {
-          if (clientId.indexOf(dbPrefix) === 0) {
-            var dollar = clientId.indexOf('$');
-            var fullName = clientId.substring(0, dollar);
-            data[fullName] = true;
+        document: function(doc) {
+          if (doc.clientNs.indexOf(dbPrefix) === 0) {
+            data[doc.clientNs] = true;
           }
 
         },

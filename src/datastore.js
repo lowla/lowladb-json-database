@@ -25,7 +25,7 @@
 
           e.target.transaction.onerror = reject;
 
-          db.createObjectStore("lowla", {keyPath: "clientId"});
+          db.createObjectStore("lowla", {keyPath: ["clientNs", "lowlaId"]});
         };
 
         request.onsuccess = function (e) {
@@ -65,7 +65,7 @@
           return;
         }
 
-        docFn(result.value.clientId, result.value.document);
+        docFn(result.value);
         result.continue();
       };
 
@@ -103,10 +103,10 @@
       }
       ////////////////////
 
-      function loadInTx(clientId, loadCallback, loadErrCallback) {
+      function loadInTx(clientNs, lowlaId, loadCallback, loadErrCallback) {
         loadErrCallback = loadErrCallback || errCallback;
         var store = tx.objectStore("lowla");
-        var keyRange = IDBKeyRange.only(clientId);
+        var keyRange = IDBKeyRange.only([clientNs, lowlaId]);
         var request = store.openCursor(keyRange);
         request.onsuccess = function (evt) {
           var doc = evt.target.result ? evt.target.result.value.document : null;
@@ -115,11 +115,12 @@
         request.onerror = loadErrCallback;
       }
 
-      function saveInTx(clientId, doc, saveCallback, saveErrCallback) {
+      function saveInTx(clientNs, lowlaId, doc, saveCallback, saveErrCallback) {
         saveErrCallback = saveErrCallback || errCallback;
         var store = tx.objectStore("lowla");
         var request = store.put({
-          "clientId": clientId,
+          "clientNs": clientNs,
+          "lowlaId": lowlaId,
           "document": doc
         });
 
@@ -147,7 +148,7 @@
             return;
           }
 
-          scanCallback(result.value.clientId, result.value.document, txWrapper);
+          scanCallback(result.value, txWrapper);
           result.continue();
         };
 
@@ -156,9 +157,9 @@
         };
       }
 
-      function removeInTx(lowlaId, removeDoneCallback, removeErrCallback) {
+      function removeInTx(clientNs, lowlaId, removeDoneCallback, removeErrCallback) {
         removeErrCallback = removeErrCallback || errCallback;
-        var request = tx.objectStore("lowla").delete(lowlaId);
+        var request = tx.objectStore("lowla").delete([clientNs, lowlaId]);
         request.onsuccess = function() {
           if (removeDoneCallback) {
             removeDoneCallback(txWrapper);
@@ -170,7 +171,7 @@
 
   };
 
-  Datastore.prototype.loadDocument = function(clientId, docFn, errFn) {
+  Datastore.prototype.loadDocument = function(clientNs, lowlaId, docFn, errFn) {
     db().then(function(db) {
       if (typeof(docFn) === 'object') {
         errFn = docFn.error || function (err) { throw err; };
@@ -181,7 +182,7 @@
       var trans = db.transaction(["lowla"], "readwrite");
       var store = trans.objectStore("lowla");
 
-      var keyRange = IDBKeyRange.only(clientId);
+      var keyRange = IDBKeyRange.only([clientNs, lowlaId]);
       var cursorRequest = store.openCursor(keyRange);
 
       cursorRequest.onsuccess = function (e) {
@@ -200,12 +201,13 @@
     });
   };
 
-  Datastore.prototype.updateDocument = function(clientId, doc, doneFn, errorFn) {
+  Datastore.prototype.updateDocument = function(clientNs, lowlaId, doc, doneFn, errorFn) {
     db().then(function (db) {
       var trans = db.transaction(["lowla"], "readwrite");
       var store = trans.objectStore("lowla");
       var request = store.put({
-        "clientId": clientId,
+        "clientNs": clientNs,
+        "lowlaId": lowlaId,
         "document": doc
       });
 

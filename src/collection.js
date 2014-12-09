@@ -43,6 +43,10 @@
     return uuid;
   }
 
+  function generateLowlaId(coll, doc) {
+    return coll.dbName + '.' + coll.collectionName + '$' + doc._id;    
+  }
+  
   function mutateObject(obj, operations) {
     var opMode = false;
     for (var i in operations) {
@@ -87,14 +91,14 @@
     }
   }
 
-  function _updateDocument(obj, flagEight) {
+  function _updateDocument(lowlaId, obj, flagEight) {
     /*jshint validthis:true */
     var coll = this;
     var savedDoc = null;
     return new Promise(function(resolve, reject) {
       coll.datastore.transact(doUpdate, resolve, reject);
       function doUpdate(tx) {
-        coll._updateDocumentInTx(tx, obj, flagEight, function(doc) {
+        coll._updateDocumentInTx(tx, lowlaId, obj, flagEight, function(doc) {
           savedDoc = doc;
         });
       }
@@ -104,27 +108,28 @@
       });
   }
 
-  function _updateDocumentInTx(tx, obj, flagEight, savedCallback) {
+  function _updateDocumentInTx(tx, lowlaId, obj, flagEight, savedCallback) {
     /*jshint validthis:true */
     savedCallback = savedCallback || function(){};
     var coll = this;
     obj._id = obj._id || generateId();
-    var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + obj._id;
+    lowlaId = lowlaId || generateLowlaId(coll, obj);
+    var clientNs = coll.dbName + '.' + coll.collectionName;
 
-    coll.lowla.emit('_saveHook', obj, lowlaID);
+    coll.lowla.emit('_saveHook', obj, lowlaId);
 
     if (flagEight) {
       saveOnly(tx);
     }
     else {
-      updateWithMeta(tx, lowlaID, saveOnly);
+      updateWithMeta(tx, clientNs, lowlaId, saveOnly);
     }
 
     function saveOnly(metaDoc, tx) {
       if (tx === undefined) {
         tx = metaDoc;
       }
-      tx.save(lowlaID, obj, objSaved);
+      tx.save(clientNs, lowlaId, obj, objSaved);
     }
 
     function objSaved(savedDoc) {
@@ -146,18 +151,22 @@
 
   function _removeDocumentInTx(tx, lowlaID, flagEight, removedCallback) {
     removedCallback = removedCallback || function(){};
+    
+    /*jshint validthis:true */
+    var clientNs = this.dbName + '.' + this.collectionName;
+    
     if (flagEight) {
       removeOnly(tx);
     }
     else {
-      updateWithMeta(tx, lowlaID, removeOnly);
+      updateWithMeta(tx, clientNs, lowlaID, removeOnly);
     }
 
     function removeOnly(metaDoc, tx) {
       if (tx === undefined) {
         tx = metaDoc;
       }
-      tx.remove(lowlaID, objRemoved);
+      tx.remove(clientNs, lowlaID, objRemoved);
     }
 
     function objRemoved() {
@@ -165,12 +174,12 @@
     }
   }
 
-  function updateWithMeta(tx, lowlaID, nextFn) {
-    tx.load("$metadata", checkMeta);
+  function updateWithMeta(tx, clientNs, lowlaID, nextFn) {
+    tx.load("", "$metadata", checkMeta);
 
     function checkMeta(metaDoc, tx) {
       if (!metaDoc || !metaDoc.changes || !metaDoc.changes[lowlaID]) {
-        tx.load(lowlaID, updateMetaChanges);
+        tx.load(clientNs, lowlaID, updateMetaChanges);
       }
       else {
         nextFn(metaDoc, tx);
@@ -181,7 +190,7 @@
         metaDoc = metaDoc || {changes: {}};
         metaDoc.changes = metaDoc.changes || {};
         metaDoc.changes[lowlaID] = oldDoc;
-        tx.save("$metadata", metaDoc, nextFn);
+        tx.save("", "$metadata", metaDoc, nextFn);
       }
     }
   }
@@ -204,13 +213,13 @@
 
       function doInsert(tx) {
         var curInsert = 0;
-        coll._updateDocumentInTx(tx, docs[curInsert], false, nextDoc);
+        coll._updateDocumentInTx(tx, null, docs[curInsert], false, nextDoc);
 
         function nextDoc(saved) {
           savedDoc.push(saved);
           ++curInsert;
           if (curInsert < docs.length) {
-            coll._updateDocumentInTx(tx, docs[curInsert], false, nextDoc);
+            coll._updateDocumentInTx(tx, null, docs[curInsert], false, nextDoc);
           }
         }
       }
@@ -274,8 +283,8 @@
           return;
         }
 
-        var obj = mutateObject(docArr[0], operations);
-        coll._updateDocumentInTx(tx, obj, false, function(obj) {
+        var obj = mutateObject(docArr[0].document, operations);
+        coll._updateDocumentInTx(tx, docArr[0].lowlaId, obj, false, function(obj) {
           savedObj = obj;
         }, reject);
       }
@@ -304,7 +313,7 @@
 
     return Promise.resolve()
       .then(function() {
-        return coll.find(filter).toArray();
+        return coll.find(filter)._applyFilter();
       })
       .then(function(arr) {
         var countRemoved = 0;
@@ -318,9 +327,8 @@
 
           function txFn(tx) {
             arr.map(function (doc) {
-              var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + doc._id;
-              coll.lowla.emit('_saveHook', null, lowlaID);
-              coll._removeDocumentInTx(tx, lowlaID, false, function () {
+              coll.lowla.emit('_saveHook', null, doc.lowlaId);
+              coll._removeDocumentInTx(tx, doc.lowlaId, false, function () {
                 countRemoved = countRemoved + 1;
               });
             });

@@ -11,7 +11,7 @@
   MemoryDatastore.prototype.loadDocument = loadDocument;
   MemoryDatastore.prototype.updateDocument = updateDocument;
   MemoryDatastore.prototype.close = close;
-
+  
   LowlaDB.registerDatastore('Memory', new MemoryDatastore());
   return LowlaDB;
   ///////////////
@@ -26,7 +26,12 @@
     if (obj) {
       var copy = {};
       LowlaDB.utils.keys(obj).forEach(function(key) {
-        copy[key] = obj[key];
+        if (typeof obj[key] === 'object') {
+          copy[key] = _copyObj(obj[key]);
+        }
+        else {
+          copy[key] = obj[key];
+        }
       });
       obj = copy;
     }
@@ -38,18 +43,27 @@
     data = {};
   }
 
-  function updateDocument(lowlaID, doc, doneFn) {
-    data[lowlaID] = doc;
+  function updateDocument(clientNs, lowlaID, doc, doneFn) {
+    data[clientNs + "$" + lowlaID] = {
+      clientNs: clientNs,
+      lowlaId: lowlaID,
+      document: doc
+    };
     doneFn(doc);
   }
 
-  function loadDocument(lowlaID, docFn) {
+  function loadDocument(clientNs, lowlaID, docFn) {
     if (typeof(docFn) === 'object') {
       docFn = docFn.document || function () {};
     }
 
-    var doc = _copyObj(data[lowlaID]);
-    docFn(doc);
+    var doc = data[clientNs + '$' + lowlaID];
+    if (doc) {
+      docFn(_copyObj(doc.document));
+    }
+    else {
+      docFn(doc);
+    }
   }
 
   function scanDocuments(docFn, doneFn) {
@@ -61,14 +75,14 @@
     }
 
     LowlaDB.utils.keys(data).forEach(function(key) {
-      docFn(key, _copyObj(data[key]));
+      docFn(_copyObj(data[key]));
     });
 
     doneFn();
   }
 
-  function remove(lowlaID, doneFn) {
-    delete data[lowlaID];
+  function remove(clientNs, lowlaID, doneFn) {
+    delete data[clientNs + "$" + lowlaID];
     doneFn();
   }
 
@@ -94,16 +108,16 @@
     }
     /////////////////
 
-    function loadInTx(lowlaID, loadCallback) {
-      loadDocument(lowlaID, function(doc) {
+    function loadInTx(clientNs, lowlaID, loadCallback) {
+      loadDocument(clientNs, lowlaID, function(doc) {
         if (loadCallback) {
           loadCallback(doc, txWrapper);
         }
       });
     }
 
-    function saveInTx(lowlaID, doc, saveCallback) {
-      updateDocument(lowlaID, doc, function(doc) {
+    function saveInTx(clientNs, lowlaID, doc, saveCallback) {
+      updateDocument(clientNs, lowlaID, doc, function(doc) {
         if (saveCallback) {
           saveCallback(doc, txWrapper);
         }
@@ -111,9 +125,9 @@
     }
 
     function scanInTx(scanCallback, scanDoneCallback) {
-      scanDocuments(function(lowlaID, doc) {
+      scanDocuments(function(doc) {
         if (scanCallback) {
-          scanCallback(lowlaID, doc, txWrapper);
+          scanCallback(doc, txWrapper);
         }
       }, function() {
         if (scanDoneCallback) {
@@ -122,8 +136,8 @@
       });
     }
 
-    function removeInTx(lowlaID, removeDoneCallback) {
-      remove(lowlaID, function() {
+    function removeInTx(clientNs, lowlaID, removeDoneCallback) {
+      remove(clientNs, lowlaID, function() {
         if (removeDoneCallback) {
           removeDoneCallback(txWrapper);
         }

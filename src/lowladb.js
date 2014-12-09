@@ -198,12 +198,12 @@
     var datastore = this.datastore;
     if (newMeta) {
       return new Promise(function(resolve, reject) {
-        datastore.updateDocument("$metadata", newMeta, resolve, reject);
+        datastore.updateDocument("", "$metadata", newMeta, resolve, reject);
       });
     }
     else {
       return new Promise(function (resolve, reject) {
-        datastore.loadDocument("$metadata", resolve, reject);
+        datastore.loadDocument("", "$metadata", resolve, reject);
       });
     }
   }

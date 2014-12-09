@@ -40,11 +40,11 @@
       maxSeq = Math.max(maxSeq, payload[i].sequence);
 
       if (payload[i].deleted) {
-        promises.push(updateIfUnchanged(payload[i].id));
+        promises.push(updateIfUnchanged(payload[i].clientNs, payload[i].id));
       }
       else {
         SyncCoordinator.validateSpecialTypes(payload[i+1]);
-        promises.push(updateIfUnchanged(payload[i].id, payload[++i]));
+        promises.push(updateIfUnchanged(payload[i].clientNs, payload[i].id, payload[++i]));
       }
       i++;
     }
@@ -60,12 +60,12 @@
         return maxSeq;
       });
 
-    function updateIfUnchanged(lowlaId, doc) {
+    function updateIfUnchanged(clientNs, lowlaId, doc) {
       return new Promise(function(resolve, reject) {
         datastore.transact(txFn, resolve, reject);
 
         function txFn(tx) {
-          tx.load("$metadata", checkMeta);
+          tx.load("", "$metadata", checkMeta);
         }
 
         function checkMeta(metaDoc, tx) {
@@ -76,10 +76,10 @@
           }
           else {
             if (doc) {
-              tx.save(lowlaId, doc);
+              tx.save(clientNs, lowlaId, doc);
             }
             else {
-              tx.remove(lowlaId);
+              tx.remove(clientNs, lowlaId);
             }
           }
         }
@@ -89,13 +89,13 @@
 
   SyncCoordinator._updateSequence = function(lowla, sequence) {
     return new Promise(function(resolve, reject) {
-      lowla.datastore.loadDocument("$metadata", {
+      lowla.datastore.loadDocument("", "$metadata", {
         document: function(doc) {
           if (!doc) {
             doc = {};
           }
           doc.sequence = sequence;
-          lowla.datastore.updateDocument("$metadata", doc, function() {
+          lowla.datastore.updateDocument("", "$metadata", doc, function() {
             resolve(sequence);
           }, reject);
         }
@@ -185,7 +185,7 @@
   SyncCoordinator.prototype.fetchChanges = function() {
     var syncCoord = this;
     return new Promise(function(resolve, reject) {
-      syncCoord.datastore.loadDocument("$metadata", {
+      syncCoord.datastore.loadDocument("", "$metadata", {
         document: resolve,
         error: reject
       });
@@ -265,7 +265,10 @@
 
       return new Promise(function (resolve, reject) {
         var docs = [];
-        datastore.scanDocuments(function(lowlaId, doc) {
+        datastore.scanDocuments(function(doc) {
+          var lowlaId = doc.lowlaId;
+          doc = doc.document;
+          
           if (docs.length >= 10 || alreadySeen.hasOwnProperty(lowlaId)) {
             return;
           }
@@ -369,7 +372,7 @@
         var docId = payload[i].id;
         var responseDoc = payload[++i];
         SyncCoordinator.validateSpecialTypes(responseDoc);
-        var promise = collection._updateDocument(responseDoc, true)
+        var promise = collection._updateDocument(docId, responseDoc, true)
           .then(makeUpdateHandler(docId));
         promises.push(promise);
       }

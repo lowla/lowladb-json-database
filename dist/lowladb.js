@@ -198,12 +198,12 @@
     var datastore = this.datastore;
     if (newMeta) {
       return new Promise(function(resolve, reject) {
-        datastore.updateDocument("$metadata", newMeta, resolve, reject);
+        datastore.updateDocument("", "$metadata", newMeta, resolve, reject);
       });
     }
     else {
       return new Promise(function (resolve, reject) {
-        datastore.loadDocument("$metadata", resolve, reject);
+        datastore.loadDocument("", "$metadata", resolve, reject);
       });
     }
   }
@@ -259,6 +259,10 @@
     return uuid;
   }
 
+  function generateLowlaId(coll, doc) {
+    return coll.dbName + '.' + coll.collectionName + '$' + doc._id;    
+  }
+  
   function mutateObject(obj, operations) {
     var opMode = false;
     for (var i in operations) {
@@ -303,14 +307,14 @@
     }
   }
 
-  function _updateDocument(obj, flagEight) {
+  function _updateDocument(lowlaId, obj, flagEight) {
     /*jshint validthis:true */
     var coll = this;
     var savedDoc = null;
     return new Promise(function(resolve, reject) {
       coll.datastore.transact(doUpdate, resolve, reject);
       function doUpdate(tx) {
-        coll._updateDocumentInTx(tx, obj, flagEight, function(doc) {
+        coll._updateDocumentInTx(tx, lowlaId, obj, flagEight, function(doc) {
           savedDoc = doc;
         });
       }
@@ -320,27 +324,28 @@
       });
   }
 
-  function _updateDocumentInTx(tx, obj, flagEight, savedCallback) {
+  function _updateDocumentInTx(tx, lowlaId, obj, flagEight, savedCallback) {
     /*jshint validthis:true */
     savedCallback = savedCallback || function(){};
     var coll = this;
     obj._id = obj._id || generateId();
-    var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + obj._id;
+    lowlaId = lowlaId || generateLowlaId(coll, obj);
+    var clientNs = coll.dbName + '.' + coll.collectionName;
 
-    coll.lowla.emit('_saveHook', obj, lowlaID);
+    coll.lowla.emit('_saveHook', obj, lowlaId);
 
     if (flagEight) {
       saveOnly(tx);
     }
     else {
-      updateWithMeta(tx, lowlaID, saveOnly);
+      updateWithMeta(tx, clientNs, lowlaId, saveOnly);
     }
 
     function saveOnly(metaDoc, tx) {
       if (tx === undefined) {
         tx = metaDoc;
       }
-      tx.save(lowlaID, obj, objSaved);
+      tx.save(clientNs, lowlaId, obj, objSaved);
     }
 
     function objSaved(savedDoc) {
@@ -362,18 +367,22 @@
 
   function _removeDocumentInTx(tx, lowlaID, flagEight, removedCallback) {
     removedCallback = removedCallback || function(){};
+    
+    /*jshint validthis:true */
+    var clientNs = this.dbName + '.' + this.collectionName;
+    
     if (flagEight) {
       removeOnly(tx);
     }
     else {
-      updateWithMeta(tx, lowlaID, removeOnly);
+      updateWithMeta(tx, clientNs, lowlaID, removeOnly);
     }
 
     function removeOnly(metaDoc, tx) {
       if (tx === undefined) {
         tx = metaDoc;
       }
-      tx.remove(lowlaID, objRemoved);
+      tx.remove(clientNs, lowlaID, objRemoved);
     }
 
     function objRemoved() {
@@ -381,12 +390,12 @@
     }
   }
 
-  function updateWithMeta(tx, lowlaID, nextFn) {
-    tx.load("$metadata", checkMeta);
+  function updateWithMeta(tx, clientNs, lowlaID, nextFn) {
+    tx.load("", "$metadata", checkMeta);
 
     function checkMeta(metaDoc, tx) {
       if (!metaDoc || !metaDoc.changes || !metaDoc.changes[lowlaID]) {
-        tx.load(lowlaID, updateMetaChanges);
+        tx.load(clientNs, lowlaID, updateMetaChanges);
       }
       else {
         nextFn(metaDoc, tx);
@@ -397,7 +406,7 @@
         metaDoc = metaDoc || {changes: {}};
         metaDoc.changes = metaDoc.changes || {};
         metaDoc.changes[lowlaID] = oldDoc;
-        tx.save("$metadata", metaDoc, nextFn);
+        tx.save("", "$metadata", metaDoc, nextFn);
       }
     }
   }
@@ -420,13 +429,13 @@
 
       function doInsert(tx) {
         var curInsert = 0;
-        coll._updateDocumentInTx(tx, docs[curInsert], false, nextDoc);
+        coll._updateDocumentInTx(tx, null, docs[curInsert], false, nextDoc);
 
         function nextDoc(saved) {
           savedDoc.push(saved);
           ++curInsert;
           if (curInsert < docs.length) {
-            coll._updateDocumentInTx(tx, docs[curInsert], false, nextDoc);
+            coll._updateDocumentInTx(tx, null, docs[curInsert], false, nextDoc);
           }
         }
       }
@@ -490,8 +499,8 @@
           return;
         }
 
-        var obj = mutateObject(docArr[0], operations);
-        coll._updateDocumentInTx(tx, obj, false, function(obj) {
+        var obj = mutateObject(docArr[0].document, operations);
+        coll._updateDocumentInTx(tx, docArr[0].lowlaId, obj, false, function(obj) {
           savedObj = obj;
         }, reject);
       }
@@ -520,7 +529,7 @@
 
     return Promise.resolve()
       .then(function() {
-        return coll.find(filter).toArray();
+        return coll.find(filter)._applyFilter();
       })
       .then(function(arr) {
         var countRemoved = 0;
@@ -534,9 +543,8 @@
 
           function txFn(tx) {
             arr.map(function (doc) {
-              var lowlaID = coll.dbName + '.' + coll.collectionName + '$' + doc._id;
-              coll.lowla.emit('_saveHook', null, lowlaID);
-              coll._removeDocumentInTx(tx, lowlaID, false, function () {
+              coll.lowla.emit('_saveHook', null, doc.lowlaId);
+              coll._removeDocumentInTx(tx, doc.lowlaId, false, function () {
                 countRemoved = countRemoved + 1;
               });
             });
@@ -631,6 +639,8 @@
   }
 
   function docCompareFunc(sort, a, b) {
+    a = a.document;
+    b = b.document;
     if (a.hasOwnProperty(sort)) {
       if (!b.hasOwnProperty(sort)) {
         return 1;
@@ -651,13 +661,13 @@
     /* jshint validthis:true */
     var data = [];
     var coll = this._collection;
-    var clientIdPrefix = coll.dbName + '.' + coll.collectionName + '$';
+    var clientNs = coll.dbName + '.' + coll.collectionName;
     var cursor = this;
 
     tx.scan(collectDocs, processDocs);
 
-    function collectDocs(clientId, doc) {
-      if (clientId.indexOf(clientIdPrefix) === 0 && filterApplies(cursor._filter, doc)) {
+    function collectDocs(doc) {
+      if (doc.clientNs === clientNs && filterApplies(cursor._filter, doc.document)) {
         data.push(doc);
       }
     }
@@ -673,7 +683,7 @@
       }
 
       if (data.length && cursor._options.showPending) {
-        tx.load("$metadata", loadMetaForPending);
+        tx.load("", "$metadata", loadMetaForPending);
       }
       else {
         try {
@@ -688,7 +698,7 @@
     function loadMetaForPending(metaDoc, tx) {
       if (metaDoc && metaDoc.changes) {
         data.forEach(function(doc) {
-          doc.$pending = metaDoc.changes.hasOwnProperty(clientIdPrefix + doc._id);
+          doc.document.$pending = metaDoc.changes.hasOwnProperty(doc.lowlaId);
         });
       }
 
@@ -806,7 +816,7 @@
     try {
       this._applyFilter().then(function (arr) {
         arr.forEach(function (doc) {
-          callback(null, doc);
+          callback(null, doc.document);
         });
       });
     }
@@ -823,6 +833,9 @@
         return cursor._applyFilter();
       })
       .then(function(filtered) {
+        filtered = filtered.map(function(doc) {
+          return doc.document;
+        });
         if (callback) {
           callback(null, filtered);
         }
@@ -887,7 +900,7 @@
 
           e.target.transaction.onerror = reject;
 
-          db.createObjectStore("lowla", {keyPath: "clientId"});
+          db.createObjectStore("lowla", {keyPath: ["clientNs", "lowlaId"]});
         };
 
         request.onsuccess = function (e) {
@@ -927,7 +940,7 @@
           return;
         }
 
-        docFn(result.value.clientId, result.value.document);
+        docFn(result.value);
         result.continue();
       };
 
@@ -965,10 +978,10 @@
       }
       ////////////////////
 
-      function loadInTx(clientId, loadCallback, loadErrCallback) {
+      function loadInTx(clientNs, lowlaId, loadCallback, loadErrCallback) {
         loadErrCallback = loadErrCallback || errCallback;
         var store = tx.objectStore("lowla");
-        var keyRange = IDBKeyRange.only(clientId);
+        var keyRange = IDBKeyRange.only([clientNs, lowlaId]);
         var request = store.openCursor(keyRange);
         request.onsuccess = function (evt) {
           var doc = evt.target.result ? evt.target.result.value.document : null;
@@ -977,11 +990,12 @@
         request.onerror = loadErrCallback;
       }
 
-      function saveInTx(clientId, doc, saveCallback, saveErrCallback) {
+      function saveInTx(clientNs, lowlaId, doc, saveCallback, saveErrCallback) {
         saveErrCallback = saveErrCallback || errCallback;
         var store = tx.objectStore("lowla");
         var request = store.put({
-          "clientId": clientId,
+          "clientNs": clientNs,
+          "lowlaId": lowlaId,
           "document": doc
         });
 
@@ -1009,7 +1023,7 @@
             return;
           }
 
-          scanCallback(result.value.clientId, result.value.document, txWrapper);
+          scanCallback(result.value, txWrapper);
           result.continue();
         };
 
@@ -1018,9 +1032,9 @@
         };
       }
 
-      function removeInTx(lowlaId, removeDoneCallback, removeErrCallback) {
+      function removeInTx(clientNs, lowlaId, removeDoneCallback, removeErrCallback) {
         removeErrCallback = removeErrCallback || errCallback;
-        var request = tx.objectStore("lowla").delete(lowlaId);
+        var request = tx.objectStore("lowla").delete([clientNs, lowlaId]);
         request.onsuccess = function() {
           if (removeDoneCallback) {
             removeDoneCallback(txWrapper);
@@ -1032,7 +1046,7 @@
 
   };
 
-  Datastore.prototype.loadDocument = function(clientId, docFn, errFn) {
+  Datastore.prototype.loadDocument = function(clientNs, lowlaId, docFn, errFn) {
     db().then(function(db) {
       if (typeof(docFn) === 'object') {
         errFn = docFn.error || function (err) { throw err; };
@@ -1043,7 +1057,7 @@
       var trans = db.transaction(["lowla"], "readwrite");
       var store = trans.objectStore("lowla");
 
-      var keyRange = IDBKeyRange.only(clientId);
+      var keyRange = IDBKeyRange.only([clientNs, lowlaId]);
       var cursorRequest = store.openCursor(keyRange);
 
       cursorRequest.onsuccess = function (e) {
@@ -1062,12 +1076,13 @@
     });
   };
 
-  Datastore.prototype.updateDocument = function(clientId, doc, doneFn, errorFn) {
+  Datastore.prototype.updateDocument = function(clientNs, lowlaId, doc, doneFn, errorFn) {
     db().then(function (db) {
       var trans = db.transaction(["lowla"], "readwrite");
       var store = trans.objectStore("lowla");
       var request = store.put({
-        "clientId": clientId,
+        "clientNs": clientNs,
+        "lowlaId": lowlaId,
         "document": doc
       });
 
@@ -1150,11 +1165,9 @@
 
     function fetchNames(resolve, reject) {
       datastore.scanDocuments({
-        document: function(clientId) {
-          if (clientId.indexOf(dbPrefix) === 0) {
-            var dollar = clientId.indexOf('$');
-            var fullName = clientId.substring(0, dollar);
-            data[fullName] = true;
+        document: function(doc) {
+          if (doc.clientNs.indexOf(dbPrefix) === 0) {
+            data[doc.clientNs] = true;
           }
 
         },
@@ -1209,7 +1222,7 @@
   MemoryDatastore.prototype.loadDocument = loadDocument;
   MemoryDatastore.prototype.updateDocument = updateDocument;
   MemoryDatastore.prototype.close = close;
-
+  
   LowlaDB.registerDatastore('Memory', new MemoryDatastore());
   return LowlaDB;
   ///////////////
@@ -1224,7 +1237,12 @@
     if (obj) {
       var copy = {};
       LowlaDB.utils.keys(obj).forEach(function(key) {
-        copy[key] = obj[key];
+        if (typeof obj[key] === 'object') {
+          copy[key] = _copyObj(obj[key]);
+        }
+        else {
+          copy[key] = obj[key];
+        }
       });
       obj = copy;
     }
@@ -1236,18 +1254,27 @@
     data = {};
   }
 
-  function updateDocument(lowlaID, doc, doneFn) {
-    data[lowlaID] = doc;
+  function updateDocument(clientNs, lowlaID, doc, doneFn) {
+    data[clientNs + "$" + lowlaID] = {
+      clientNs: clientNs,
+      lowlaId: lowlaID,
+      document: doc
+    };
     doneFn(doc);
   }
 
-  function loadDocument(lowlaID, docFn) {
+  function loadDocument(clientNs, lowlaID, docFn) {
     if (typeof(docFn) === 'object') {
       docFn = docFn.document || function () {};
     }
 
-    var doc = _copyObj(data[lowlaID]);
-    docFn(doc);
+    var doc = data[clientNs + '$' + lowlaID];
+    if (doc) {
+      docFn(_copyObj(doc.document));
+    }
+    else {
+      docFn(doc);
+    }
   }
 
   function scanDocuments(docFn, doneFn) {
@@ -1259,14 +1286,14 @@
     }
 
     LowlaDB.utils.keys(data).forEach(function(key) {
-      docFn(key, _copyObj(data[key]));
+      docFn(_copyObj(data[key]));
     });
 
     doneFn();
   }
 
-  function remove(lowlaID, doneFn) {
-    delete data[lowlaID];
+  function remove(clientNs, lowlaID, doneFn) {
+    delete data[clientNs + "$" + lowlaID];
     doneFn();
   }
 
@@ -1292,16 +1319,16 @@
     }
     /////////////////
 
-    function loadInTx(lowlaID, loadCallback) {
-      loadDocument(lowlaID, function(doc) {
+    function loadInTx(clientNs, lowlaID, loadCallback) {
+      loadDocument(clientNs, lowlaID, function(doc) {
         if (loadCallback) {
           loadCallback(doc, txWrapper);
         }
       });
     }
 
-    function saveInTx(lowlaID, doc, saveCallback) {
-      updateDocument(lowlaID, doc, function(doc) {
+    function saveInTx(clientNs, lowlaID, doc, saveCallback) {
+      updateDocument(clientNs, lowlaID, doc, function(doc) {
         if (saveCallback) {
           saveCallback(doc, txWrapper);
         }
@@ -1309,9 +1336,9 @@
     }
 
     function scanInTx(scanCallback, scanDoneCallback) {
-      scanDocuments(function(lowlaID, doc) {
+      scanDocuments(function(doc) {
         if (scanCallback) {
-          scanCallback(lowlaID, doc, txWrapper);
+          scanCallback(doc, txWrapper);
         }
       }, function() {
         if (scanDoneCallback) {
@@ -1320,8 +1347,8 @@
       });
     }
 
-    function removeInTx(lowlaID, removeDoneCallback) {
-      remove(lowlaID, function() {
+    function removeInTx(clientNs, lowlaID, removeDoneCallback) {
+      remove(clientNs, lowlaID, function() {
         if (removeDoneCallback) {
           removeDoneCallback(txWrapper);
         }
@@ -1370,11 +1397,11 @@
       maxSeq = Math.max(maxSeq, payload[i].sequence);
 
       if (payload[i].deleted) {
-        promises.push(updateIfUnchanged(payload[i].id));
+        promises.push(updateIfUnchanged(payload[i].clientNs, payload[i].id));
       }
       else {
         SyncCoordinator.validateSpecialTypes(payload[i+1]);
-        promises.push(updateIfUnchanged(payload[i].id, payload[++i]));
+        promises.push(updateIfUnchanged(payload[i].clientNs, payload[i].id, payload[++i]));
       }
       i++;
     }
@@ -1390,12 +1417,12 @@
         return maxSeq;
       });
 
-    function updateIfUnchanged(lowlaId, doc) {
+    function updateIfUnchanged(clientNs, lowlaId, doc) {
       return new Promise(function(resolve, reject) {
         datastore.transact(txFn, resolve, reject);
 
         function txFn(tx) {
-          tx.load("$metadata", checkMeta);
+          tx.load("", "$metadata", checkMeta);
         }
 
         function checkMeta(metaDoc, tx) {
@@ -1406,10 +1433,10 @@
           }
           else {
             if (doc) {
-              tx.save(lowlaId, doc);
+              tx.save(clientNs, lowlaId, doc);
             }
             else {
-              tx.remove(lowlaId);
+              tx.remove(clientNs, lowlaId);
             }
           }
         }
@@ -1419,13 +1446,13 @@
 
   SyncCoordinator._updateSequence = function(lowla, sequence) {
     return new Promise(function(resolve, reject) {
-      lowla.datastore.loadDocument("$metadata", {
+      lowla.datastore.loadDocument("", "$metadata", {
         document: function(doc) {
           if (!doc) {
             doc = {};
           }
           doc.sequence = sequence;
-          lowla.datastore.updateDocument("$metadata", doc, function() {
+          lowla.datastore.updateDocument("", "$metadata", doc, function() {
             resolve(sequence);
           }, reject);
         }
@@ -1515,7 +1542,7 @@
   SyncCoordinator.prototype.fetchChanges = function() {
     var syncCoord = this;
     return new Promise(function(resolve, reject) {
-      syncCoord.datastore.loadDocument("$metadata", {
+      syncCoord.datastore.loadDocument("", "$metadata", {
         document: resolve,
         error: reject
       });
@@ -1595,7 +1622,10 @@
 
       return new Promise(function (resolve, reject) {
         var docs = [];
-        datastore.scanDocuments(function(lowlaId, doc) {
+        datastore.scanDocuments(function(doc) {
+          var lowlaId = doc.lowlaId;
+          doc = doc.document;
+          
           if (docs.length >= 10 || alreadySeen.hasOwnProperty(lowlaId)) {
             return;
           }
@@ -1699,7 +1729,7 @@
         var docId = payload[i].id;
         var responseDoc = payload[++i];
         SyncCoordinator.validateSpecialTypes(responseDoc);
-        var promise = collection._updateDocument(responseDoc, true)
+        var promise = collection._updateDocument(docId, responseDoc, true)
           .then(makeUpdateHandler(docId));
         promises.push(promise);
       }
