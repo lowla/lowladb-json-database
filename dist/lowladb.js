@@ -886,6 +886,12 @@
     }
   };
 
+  Datastore._makeKey = _makeKey;
+  
+  function _makeKey(clientNs, lowlaId) {
+    return clientNs + '$' + lowlaId;
+  }
+
   var _ready = false;
   var db = function() {
     if (!_ready) {
@@ -900,7 +906,7 @@
 
           e.target.transaction.onerror = reject;
 
-          db.createObjectStore("lowla", {keyPath: ["clientNs", "lowlaId"]});
+          db.createObjectStore("lowla");
         };
 
         request.onsuccess = function (e) {
@@ -981,7 +987,7 @@
       function loadInTx(clientNs, lowlaId, loadCallback, loadErrCallback) {
         loadErrCallback = loadErrCallback || errCallback;
         var store = tx.objectStore("lowla");
-        var keyRange = IDBKeyRange.only([clientNs, lowlaId]);
+        var keyRange = IDBKeyRange.only(_makeKey(clientNs, lowlaId));
         var request = store.openCursor(keyRange);
         request.onsuccess = function (evt) {
           var doc = evt.target.result ? evt.target.result.value.document : null;
@@ -997,7 +1003,7 @@
           "clientNs": clientNs,
           "lowlaId": lowlaId,
           "document": doc
-        });
+        }, _makeKey(clientNs, lowlaId));
 
         request.onsuccess = function (e) {
           if (saveCallback) {
@@ -1034,7 +1040,7 @@
 
       function removeInTx(clientNs, lowlaId, removeDoneCallback, removeErrCallback) {
         removeErrCallback = removeErrCallback || errCallback;
-        var request = tx.objectStore("lowla").delete([clientNs, lowlaId]);
+        var request = tx.objectStore("lowla").delete(_makeKey(clientNs, lowlaId));
         request.onsuccess = function() {
           if (removeDoneCallback) {
             removeDoneCallback(txWrapper);
@@ -1057,7 +1063,7 @@
       var trans = db.transaction(["lowla"], "readwrite");
       var store = trans.objectStore("lowla");
 
-      var keyRange = IDBKeyRange.only([clientNs, lowlaId]);
+      var keyRange = IDBKeyRange.only(_makeKey(clientNs, lowlaId));
       var cursorRequest = store.openCursor(keyRange);
 
       cursorRequest.onsuccess = function (e) {
@@ -1084,7 +1090,7 @@
         "clientNs": clientNs,
         "lowlaId": lowlaId,
         "document": doc
-      });
+      }, _makeKey(clientNs, lowlaId));
 
       trans.oncomplete = function (e) {
         if (doneFn) {
