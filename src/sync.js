@@ -370,10 +370,11 @@
       }
       else {
         var docId = payload[i].id;
+        var oldDocId = payload[i].clientId;
         var responseDoc = payload[++i];
         SyncCoordinator.validateSpecialTypes(responseDoc);
-        var promise = collection._updateDocument(docId, responseDoc, true)
-          .then(makeUpdateHandler(docId));
+        var promise = collection._updateDocument(docId, responseDoc, true, oldDocId)
+          .then(makeUpdateHandler(oldDocId || docId));
         promises.push(promise);
       }
 

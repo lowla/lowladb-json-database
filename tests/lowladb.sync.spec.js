@@ -489,7 +489,7 @@ testUtils.eachDatastore(function(dsName) {
             return lowla._syncCoordinator.collectPushData();
           })
           .then(function(payload) {
-            // Lowla should still send deletes for new documents it removed before pushing; it is up to the server ot
+            // Lowla should still send deletes for new documents it removed before pushing; it is up to the server to
             // ignore these "empty" deletes.
             // This behavior is necessary to properly handle a case where a new document is sent to the server and is
             // deleted before the Push response is returned.
@@ -510,6 +510,25 @@ testUtils.eachDatastore(function(dsName) {
           .then(function (arr) {
             arr.should.have.length(1);
             arr[0]._id.should.equal('1234');
+          });
+      });
+
+      it('can process a push response that switches the ID of the document', function() {
+        var pushResponse = makeAdapterResponse({_id: '123456', a: 2, b: 5});
+        pushResponse[0].clientId = 'dbName.collectionOne$1234';
+        return coll.insert({_id: '1234', a: 2, b: 5})
+          .then(function () {
+            return lowla._syncCoordinator.clearPushData();
+          })
+          .then(function() {
+            return lowla._syncCoordinator.processPushResponse(pushResponse)
+          })
+          .then(function() {
+            return coll.find().toArray();
+          })
+          .then(function(arr) {
+            arr.should.have.length(1);
+            arr[0]._id.should.equal('123456');
           });
       });
 
@@ -547,6 +566,30 @@ testUtils.eachDatastore(function(dsName) {
           .then(function (doc) {
             should.exist(doc);
             doc._id.should.equal(objId);
+            return lowla._syncCoordinator.collectPushData();
+          })
+          .then(function (payload) {
+            should.not.exist(payload);
+          });
+      });
+
+      it('can perform a full push operation where ID changes on response', function () {
+        var objId;
+        return coll.insert({a: 1})
+          .then(function (obj) {
+            objId = obj._id;
+            var pushResponse = makeAdapterResponse({_id: objId+'New', a: 1});
+            pushResponse[0].clientId = 'dbName.collectionOne$' + objId;
+            getJSON.returns(Promise.resolve(pushResponse));
+            return lowla._syncCoordinator.pushChanges();
+          })
+          .then(function () {
+            return coll.find({}).toArray();
+          })
+          .then(function (arr) {
+            arr.should.have.length(1);
+            var doc = arr[0];
+            doc._id.should.equal(objId+'New');
             return lowla._syncCoordinator.collectPushData();
           })
           .then(function (payload) {

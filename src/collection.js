@@ -91,12 +91,19 @@
     }
   }
 
-  function _updateDocument(lowlaId, obj, flagEight) {
+  function _updateDocument(lowlaId, obj, flagEight, oldDocId) {
     /*jshint validthis:true */
     var coll = this;
     var savedDoc = null;
     return new Promise(function(resolve, reject) {
-      coll.datastore.transact(doUpdate, resolve, reject);
+      coll.datastore.transact(oldDocId ? doRemoveThenUpdate : doUpdate, resolve, reject);
+
+      function doRemoveThenUpdate(tx) {
+        coll._removeDocumentInTx(tx, oldDocId, true, function() {
+          doUpdate(tx);
+        });
+      }
+
       function doUpdate(tx) {
         coll._updateDocumentInTx(tx, lowlaId, obj, flagEight, function(doc) {
           savedDoc = doc;
