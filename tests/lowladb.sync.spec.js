@@ -521,7 +521,7 @@ testUtils.eachDatastore(function(dsName) {
             return lowla._syncCoordinator.clearPushData();
           })
           .then(function() {
-            return lowla._syncCoordinator.processPushResponse(pushResponse)
+            return lowla._syncCoordinator.processPushResponse(pushResponse);
           })
           .then(function() {
             return coll.find().toArray();
