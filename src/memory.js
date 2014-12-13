@@ -68,18 +68,13 @@
   }
 
   function scanDocuments(docFn, doneFn) {
-    if (typeof(docFn) === 'object') {
-      doneFn = docFn.done || function () {
-      };
-      docFn = docFn.document || function () {
-      };
-    }
-
-    LowlaDB.utils.keys(data).forEach(function(key) {
-      docFn(_copyObj(data[key]));
-    });
-
-    doneFn();
+    this.transact(
+      function(tx) {
+        tx.scan(docFn, doneFn);
+      },
+      function() {},
+      function() {}
+    );
   }
 
   function remove(clientNs, lowlaID, doneFn) {
@@ -136,15 +131,18 @@
     }
 
     function scanInTx(scanCallback, scanDoneCallback) {
-      scanDocuments(function(doc) {
-        if (scanCallback) {
-          scanCallback(doc, txWrapper);
-        }
-      }, function() {
-        if (scanDoneCallback) {
-          scanDoneCallback(txWrapper);
-        }
+      if (typeof(scanCallback) === 'object') {
+        scanDoneCallback = scanCallback.done || function () {
+        };
+        scanCallback = scanCallback.document || function () {
+        };
+      }
+
+      LowlaDB.utils.keys(data).forEach(function(key) {
+        scanCallback(_copyObj(data[key]), txWrapper);
       });
+
+      scanDoneCallback(txWrapper);
     }
 
     function removeInTx(clientNs, lowlaID, removeDoneCallback) {
