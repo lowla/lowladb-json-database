@@ -85,7 +85,16 @@
     var clientNs = coll.dbName + '.' + coll.collectionName;
     var cursor = this;
 
-    tx.scan(collectDocs, processDocs);
+    var options = {};
+    if (cursor._filter && cursor._filter.hasOwnProperty('_id')) {
+      options.clientNs = clientNs;
+      options._id = cursor._filter._id;
+    }
+    tx.scan({
+      document: collectDocs, 
+      done: processDocs,
+      options: options
+    });
 
     function collectDocs(doc) {
       if (doc.clientNs === clientNs && filterApplies(cursor._filter, doc.document)) {

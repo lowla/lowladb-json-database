@@ -31,7 +31,10 @@
 
           e.target.transaction.onerror = reject;
 
-          db.createObjectStore("lowla");
+          var store = db.createObjectStore("lowla");
+          // Composite indexes are flaky on Safari so we just index on _id and let the caller
+          // perform clientNs filtering.
+          store.createIndex("_id", "document._id", { unique: false});
         };
 
         request.onsuccess = function (e) {
@@ -48,37 +51,13 @@
   };
 
   Datastore.prototype.scanDocuments = function(docFn, doneFn, errFn) {
-    db().then(function(db) {
-      if (typeof(docFn) === 'object') {
-        doneFn = docFn.done || function () {
-        };
-        errFn = docFn.error || function (err) { throw err; };
-        docFn = docFn.document || function () {
-        };
-      }
-
-      var trans = db.transaction(["lowla"], "readwrite");
-      var store = trans.objectStore("lowla");
-
-      // Get everything in the store;
-      var keyRange = IDBKeyRange.lowerBound(0);
-      var cursorRequest = store.openCursor(keyRange);
-
-      cursorRequest.onsuccess = function (e) {
-        var result = e.target.result;
-        if (!result) {
-          doneFn();
-          return;
-        }
-
-        docFn(result.value);
-        result.continue();
-      };
-
-      cursorRequest.onerror = function (e) {
-        errFn(e);
-      };
-    });
+    this.transact(
+      function(tx) {
+        tx.scan(docFn, doneFn, errFn);
+      },
+      function() {},
+      errFn
+    );
   };
 
   Datastore.prototype.transact = function(callback, doneCallback, errCallback) {
@@ -142,10 +121,25 @@
       }
 
       function scanInTx(scanCallback, scanDoneCallback, scanErrCallback) {
+        var options = {};
+        if (typeof(scanCallback) === 'object') {
+          scanDoneCallback = scanCallback.done || function () {};
+          scanErrCallback = scanCallback.error;
+          options = scanCallback.options || {};
+          scanCallback = scanCallback.document || function () {};
+        }
         scanErrCallback = scanErrCallback || errCallback;
         var store = tx.objectStore("lowla");
-        var keyRange = IDBKeyRange.lowerBound(0);
-        var request = store.openCursor(keyRange);
+        
+        var request;
+        if (options._id) {
+          var index = store.index("_id");
+          var keyRange = IDBKeyRange.only(options._id);
+          request = index.openCursor(keyRange);
+        }
+        else {
+          request = store.openCursor();
+        }
 
         request.onsuccess = function (e) {
           var result = e.target.result;
