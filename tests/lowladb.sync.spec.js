@@ -461,6 +461,37 @@ testUtils.eachDatastore(function(dsName) {
           });
       });
 
+      it('will not create payload for a modified document that is reverted', function() {
+        return coll.insert({_id: '1234', a: 1, b: 2, c: 3, d: 4, deep: { b:  5}})
+          .then(function() {
+            return lowla._syncCoordinator.clearPushData();
+          })
+          .then(function() {
+            return coll.findAndModify({_id: '1234'}, {$set: {a: 2, deep: 'f' }});
+          })
+          .then(function() {
+            return coll.findAndModify({_id: '1234'}, {$set: { a: 11, x: 10 }});
+          })
+          .then(function() {
+            return coll.findAndModify({_id: '1234'}, {$unset: { d: true }});
+          })
+          .then(function() {
+            return coll.findAndModify({_id: '1234'}, {$unset: { x: true }});
+          })
+          .then(function() {
+            return coll.findAndModify({_id: '1234'}, {$set: { a: 1, d: 4 }});
+          })
+          .then(function() {
+            return coll.findAndModify({_id: '1234'}, {$set: {deep: { b: 5 }}});
+          })
+          .then(function() {
+            return lowla._syncCoordinator.collectPushData();
+          })
+          .then(function(payload) {
+            should.not.exist(payload);
+          });
+      });
+
       it('can compute payload for deleted documents', function () {
         return coll.insert({_id: '1234', a: 1, _version: 2})
           .then(function () {
@@ -761,6 +792,53 @@ testUtils.eachDatastore(function(dsName) {
             pushEnd.callCount.should.equal(1);
             log.callCount.should.equal(1);
           });
+      });
+    });
+
+    describe('Socket.IO', function() {
+      var mockIo;
+      var mockSocket;
+      var debounce;
+      var pushPullFn;
+
+      beforeEach(function() {
+        mockSocket = {
+          on: testUtils.sandbox.stub()
+        };
+
+        mockIo = {
+          connect: testUtils.sandbox.stub().returns(mockSocket)
+        };
+
+        debounce = testUtils.sandbox.stub(LowlaDB.utils, 'debounce');
+        pushPullFn = testUtils.sandbox.stub();
+        debounce.returns(pushPullFn);
+
+        testUtils.sandbox.stub(LowlaDB.SyncCoordinator.prototype, 'pushChanges').returns(Promise.resolve({}));
+        testUtils.sandbox.stub(LowlaDB.SyncCoordinator.prototype, 'fetchChanges').returns(Promise.resolve({}));
+
+        return lowla.sync('http://lowla.io', { io: mockIo });
+      });
+
+      it('registers for Socket.IO events', function() {
+        mockSocket.on.callCount.should.equal(2);
+        mockSocket.on.getCall(0).args[0].should.equal('changes');
+        mockSocket.on.getCall(0).args[1].should.be.a('function');
+        mockSocket.on.getCall(1).args[0].should.equal('reconnect');
+        mockSocket.on.getCall(1).args[1].should.be.a('function');
+        debounce.callCount.should.equal(1);
+      });
+
+      it('invokes pushPull on changes event', function() {
+        pushPullFn.callCount.should.equal(0);
+        mockSocket.on.getCall(0).args[1]();
+        pushPullFn.callCount.should.equal(1);
+      });
+
+      it('invokes pushPull on reconnect event', function() {
+        pushPullFn.callCount.should.equal(0);
+        mockSocket.on.getCall(1).args[1]();
+        pushPullFn.callCount.should.equal(1);
       });
     });
 

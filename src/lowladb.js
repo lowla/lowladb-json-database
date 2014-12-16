@@ -63,35 +63,64 @@
   function sync(serverUrl, options) {
     /* jshint validthis: true */
     var lowla = this;
+    options = options || {};
     lowla._syncCoordinator = new LowlaDB.SyncCoordinator(lowla, serverUrl, options);
-    if (options && -1 == options.pollFrequency) {
+    if (options && -1 === options.pollFrequency) {
       return;
     }
 
-    var pushPull = function() {
+    var socketIo = (options.io || window.io) && (options.socket || options.socket === undefined);
+    if (socketIo && !options.pollFrequency) {
+      var theIo = (options.io || window.io);
+      var pushPullFn = LowlaDB.utils.debounce(pushPull, 250);
+      var socket = theIo.connect(serverUrl);
+      socket.on('changes', function() {
+        pushPullFn();
+      });
+      socket.on('reconnect', function() {
+        pushPullFn();
+      });
+      lowla.on('_pending', function() {
+        pushPullFn();
+      });
+    }
+
+    function pushPull() {
+      if (lowla._syncing) {
+        lowla._pendingSync = true;
+        return;
+      }
+
+      lowla._syncing = true;
       lowla.emit('syncBegin');
       return lowla._syncCoordinator.pushChanges()
         .then(function() {
           return lowla._syncCoordinator.fetchChanges();
         })
         .then(function(arg) {
+          lowla._syncing = false;
           lowla.emit('syncEnd');
+          if (lowla._pendingSync) {
+            lowla._pendingSync = false;
+            return pushPull();
+          }
           return arg;
         }, function(err) {
+          lowla._syncing = lowla._pendingSync = false;
           lowla.emit('syncEnd');
           throw err;
         });
-    };
+    }
 
     return pushPull().then(function () {
-      if (options && 0 !== options.pollFrequency) {
+      if (options.pollFrequency) {
         var pollFunc = function () {
           pushPull().then(function () {
-              setTimeout(pollFunc, options.pollFrequency);
+              setTimeout(pollFunc, options.pollFrequency * 1000);
             });
         };
 
-        setTimeout(pollFunc, options.pollFrequency);
+        setTimeout(pollFunc, options.pollFrequency * 1000);
       }
     }, function (err) {
       throw err;

@@ -63,35 +63,64 @@
   function sync(serverUrl, options) {
     /* jshint validthis: true */
     var lowla = this;
+    options = options || {};
     lowla._syncCoordinator = new LowlaDB.SyncCoordinator(lowla, serverUrl, options);
-    if (options && -1 == options.pollFrequency) {
+    if (options && -1 === options.pollFrequency) {
       return;
     }
 
-    var pushPull = function() {
+    var socketIo = (options.io || window.io) && (options.socket || options.socket === undefined);
+    if (socketIo && !options.pollFrequency) {
+      var theIo = (options.io || window.io);
+      var pushPullFn = LowlaDB.utils.debounce(pushPull, 250);
+      var socket = theIo.connect(serverUrl);
+      socket.on('changes', function() {
+        pushPullFn();
+      });
+      socket.on('reconnect', function() {
+        pushPullFn();
+      });
+      lowla.on('_pending', function() {
+        pushPullFn();
+      });
+    }
+
+    function pushPull() {
+      if (lowla._syncing) {
+        lowla._pendingSync = true;
+        return;
+      }
+
+      lowla._syncing = true;
       lowla.emit('syncBegin');
       return lowla._syncCoordinator.pushChanges()
         .then(function() {
           return lowla._syncCoordinator.fetchChanges();
         })
         .then(function(arg) {
+          lowla._syncing = false;
           lowla.emit('syncEnd');
+          if (lowla._pendingSync) {
+            lowla._pendingSync = false;
+            return pushPull();
+          }
           return arg;
         }, function(err) {
+          lowla._syncing = lowla._pendingSync = false;
           lowla.emit('syncEnd');
           throw err;
         });
-    };
+    }
 
     return pushPull().then(function () {
-      if (options && 0 !== options.pollFrequency) {
+      if (options.pollFrequency) {
         var pollFunc = function () {
           pushPull().then(function () {
-              setTimeout(pollFunc, options.pollFrequency);
+              setTimeout(pollFunc, options.pollFrequency * 1000);
             });
         };
 
-        setTimeout(pollFunc, options.pollFrequency);
+        setTimeout(pollFunc, options.pollFrequency * 1000);
       }
     }, function (err) {
       throw err;
@@ -307,12 +336,19 @@
     }
   }
 
-  function _updateDocument(lowlaId, obj, flagEight) {
+  function _updateDocument(lowlaId, obj, flagEight, oldDocId) {
     /*jshint validthis:true */
     var coll = this;
     var savedDoc = null;
     return new Promise(function(resolve, reject) {
-      coll.datastore.transact(doUpdate, resolve, reject);
+      coll.datastore.transact(oldDocId ? doRemoveThenUpdate : doUpdate, resolve, reject);
+
+      function doRemoveThenUpdate(tx) {
+        coll._removeDocumentInTx(tx, oldDocId, true, function() {
+          doUpdate(tx);
+        });
+      }
+
       function doUpdate(tx) {
         coll._updateDocumentInTx(tx, lowlaId, obj, flagEight, function(doc) {
           savedDoc = doc;
@@ -338,7 +374,7 @@
       saveOnly(tx);
     }
     else {
-      updateWithMeta(tx, clientNs, lowlaId, saveOnly);
+      updateWithMeta(tx, clientNs, lowlaId, saveOnly, obj);
     }
 
     function saveOnly(metaDoc, tx) {
@@ -390,12 +426,54 @@
     }
   }
 
-  function updateWithMeta(tx, clientNs, lowlaID, nextFn) {
+  function isSameObject(oldObj, newObj) {
+    var oldKeys = LowlaDB.utils.keys(oldObj);
+    var newKeys = LowlaDB.utils.keys(newObj);
+    if (oldKeys.length != newKeys.length) {
+      return false;
+    }
+
+    var answer = true;
+    LowlaDB.utils.keys(oldObj).forEach(function(oldKey) {
+      if (!answer) {
+        return answer;
+      }
+
+      if (!newObj.hasOwnProperty(oldKey)) {
+        answer = false;
+        return answer;
+      }
+
+      if (oldObj[oldKey] instanceof Object) {
+        if (!(newObj[oldKey] instanceof Object)) {
+          answer = false;
+          return answer;
+        }
+
+        answer = isSameObject(oldObj[oldKey], newObj[oldKey]);
+      }
+      else {
+        answer = JSON.stringify(oldObj[oldKey]) === JSON.stringify(newObj[oldKey]);
+      }
+    });
+
+    return answer;
+  }
+  function updateWithMeta(tx, clientNs, lowlaID, nextFn, newDoc) {
     tx.load("", "$metadata", checkMeta);
 
     function checkMeta(metaDoc, tx) {
       if (!metaDoc || !metaDoc.changes || !metaDoc.changes[lowlaID]) {
         tx.load(clientNs, lowlaID, updateMetaChanges);
+      }
+      else if (newDoc) {
+        if (isSameObject(metaDoc.changes[lowlaID], newDoc)) {
+          delete metaDoc.changes[lowlaID];
+          tx.save("", "$metadata", metaDoc, nextFn);
+        }
+        else {
+          nextFn(metaDoc, tx);
+        }
       }
       else {
         nextFn(metaDoc, tx);
@@ -441,6 +519,7 @@
       }
     })
       .then(function() {
+        coll.lowla.emit('_pending');
         if (!LowlaDB.utils.isArray(arg)) {
           savedDoc = savedDoc.length ? savedDoc[0] : null;
         }
@@ -506,6 +585,7 @@
       }
     })
       .then(function() {
+        coll.lowla.emit('_pending');
         if (callback) {
           callback(null, savedObj);
         }
@@ -556,6 +636,7 @@
           });
       })
       .then(function(count) {
+        coll.lowla.emit('_pending');
         if (callback) {
           callback(null, count);
         }
@@ -1779,10 +1860,11 @@
       }
       else {
         var docId = payload[i].id;
+        var oldDocId = payload[i].clientId;
         var responseDoc = payload[++i];
         SyncCoordinator.validateSpecialTypes(responseDoc);
-        var promise = collection._updateDocument(docId, responseDoc, true)
-          .then(makeUpdateHandler(docId));
+        var promise = collection._updateDocument(docId, responseDoc, true, oldDocId)
+          .then(makeUpdateHandler(oldDocId || docId));
         promises.push(promise);
       }
 
@@ -1973,6 +2055,21 @@
 
   utils.isArray = function(obj) {
     return (obj instanceof Array);
+  };
+
+  utils.debounce = function(func, wait, immediate) {
+    var timeout;
+    return function() {
+      var context = this, args = arguments;
+      var later = function() {
+        timeout = null;
+        if (!immediate) func.apply(context, args);
+      };
+      var callNow = immediate && !timeout;
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+      if (callNow) func.apply(context, args);
+    };
   };
 
   LowlaDB.utils = utils;

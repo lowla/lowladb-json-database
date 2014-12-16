@@ -182,10 +182,46 @@ todos.remove({ _id: 'theId' });
 You can add a callback or promise to confirm that the remove was successful.
 
 ## Syncing ##
-You initiate sync with the `sync` method. This will perform an incremental, bi-directional sync with the specified server and, optionally, leave the sync channel open for real-time updates. If you choose to enable real-time sync, LowlaDB will call your `on` callbacks for any active queries whenever changes are made to a collection.
+You initiate sync with the `sync` method. This will perform an incremental, bi-directional sync with the specified
+server.
 
 ```js
-lowla.sync('syncServer', { /* options e.g. authentication, leave channel open */ });
+var syncServer = location.protocol + '//' + location.host;
+lowla.sync(syncServer);
+```
+
+By default, the `sync()` method will perform a single sync operation with the LowlaDB server.  LowlaDB supports
+real-time update via Socket.IO or polling. If you choose to enable real-time sync, LowlaDB will call your `on`
+callbacks for any active queries whenever changes are made to a collection.
+
+### Real-Time Sync via Socket.IO ###
+
+To enable real-time updates, include [Socket.IO](http://socket.io) in your client page and LowlaDB will automatically
+use it to receive notifications from the LowlaDB server that sync is required.
+
+For example, the [LowlaDB Demo](https://github.com/lowla/lowladb-demo-node) provides Socket.IO via the server and
+includes the Socket.IO client script before LowlaDB:
+
+```html
+<script src="/socket.io/socket.io.js"></script>
+<script src="bower_components/lowladb/dist/lowladb.js"></script>
+```
+
+If for some reason you include Socket.IO but do not wish to use it for real-time updates, you can disable Socket.IO
+via configuration:
+
+```js
+lowla.sync(syncServer, { socket: false });
+```
+
+### Interval Sync via Polling ###
+
+Socket.IO is the recommended method for real-time updates.  Alternatively, LowlaDB can poll the LowlaDB Sync server to
+check for changes.  To do so, you must provide the poll frequency in seconds when calling `sync()`:
+
+```js
+// check for changes every 5 minutes
+lowla.sync(syncServer, { pollFrequency: 300 });
 ```
 
 ## Sync Events ##

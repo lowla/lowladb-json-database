@@ -129,7 +129,7 @@
       saveOnly(tx);
     }
     else {
-      updateWithMeta(tx, clientNs, lowlaId, saveOnly);
+      updateWithMeta(tx, clientNs, lowlaId, saveOnly, obj);
     }
 
     function saveOnly(metaDoc, tx) {
@@ -181,12 +181,54 @@
     }
   }
 
-  function updateWithMeta(tx, clientNs, lowlaID, nextFn) {
+  function isSameObject(oldObj, newObj) {
+    var oldKeys = LowlaDB.utils.keys(oldObj);
+    var newKeys = LowlaDB.utils.keys(newObj);
+    if (oldKeys.length != newKeys.length) {
+      return false;
+    }
+
+    var answer = true;
+    LowlaDB.utils.keys(oldObj).forEach(function(oldKey) {
+      if (!answer) {
+        return answer;
+      }
+
+      if (!newObj.hasOwnProperty(oldKey)) {
+        answer = false;
+        return answer;
+      }
+
+      if (oldObj[oldKey] instanceof Object) {
+        if (!(newObj[oldKey] instanceof Object)) {
+          answer = false;
+          return answer;
+        }
+
+        answer = isSameObject(oldObj[oldKey], newObj[oldKey]);
+      }
+      else {
+        answer = JSON.stringify(oldObj[oldKey]) === JSON.stringify(newObj[oldKey]);
+      }
+    });
+
+    return answer;
+  }
+  function updateWithMeta(tx, clientNs, lowlaID, nextFn, newDoc) {
     tx.load("", "$metadata", checkMeta);
 
     function checkMeta(metaDoc, tx) {
       if (!metaDoc || !metaDoc.changes || !metaDoc.changes[lowlaID]) {
         tx.load(clientNs, lowlaID, updateMetaChanges);
+      }
+      else if (newDoc) {
+        if (isSameObject(metaDoc.changes[lowlaID], newDoc)) {
+          delete metaDoc.changes[lowlaID];
+          tx.save("", "$metadata", metaDoc, nextFn);
+        }
+        else {
+          nextFn(metaDoc, tx);
+        }
       }
       else {
         nextFn(metaDoc, tx);
@@ -232,6 +274,7 @@
       }
     })
       .then(function() {
+        coll.lowla.emit('_pending');
         if (!LowlaDB.utils.isArray(arg)) {
           savedDoc = savedDoc.length ? savedDoc[0] : null;
         }
@@ -297,6 +340,7 @@
       }
     })
       .then(function() {
+        coll.lowla.emit('_pending');
         if (callback) {
           callback(null, savedObj);
         }
@@ -347,6 +391,7 @@
           });
       })
       .then(function(count) {
+        coll.lowla.emit('_pending');
         if (callback) {
           callback(null, count);
         }
