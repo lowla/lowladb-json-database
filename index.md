@@ -8,7 +8,19 @@ summary: A database for mobile applications
 <div id="Intro">
   
 ## Introduction ##
-LowlaDB is a database designed from the ground up to support connected mobile applications.  Our technical objectives for LowlaDB are fourfold:
+LowlaDB is a database designed from the ground up to support connected mobile applications. It can be used to create the following kinds of apps:
+
+* Super-fast microsites for mobile devices
+* Offline-capable apps for consumers
+* Offline-capable apps for the enterprise
+
+A microsite is a typically a small cluster of web pages that function as a discrete entity and have their own domain name or sub-domain. They are often used for promotional purposes to support commercial marketing campaigns.  By caching the microsite content within LowlaDB, user access to the content can be accelerated.
+
+Offline-capable apps include enterprise productivity apps, such as contact management or field service tracking.  For these apps it is very useful to be able to access information when the mobile device is offline.  
+
+The usability of almost any kind of consumer app can be enhanced by adding offline capability.  This allows the app is still be responsive when the wireless network is busy or unavailable.
+
+Our technical objectives for LowlaDB are fourfold:
  
 1. Low-latency data access
 2. Offline capability
