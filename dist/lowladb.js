@@ -24,6 +24,8 @@
   LowlaDB.prototype._metadata = _metadata;
   LowlaDB.prototype._cursorsOff = _cursorsOff;
   LowlaDB.prototype._processLoadPayload = _processLoadPayload;
+  LowlaDB.prototype._generateLowlaId = _generateLowlaId;
+  
   return LowlaDB;
   ///////////////
 
@@ -32,7 +34,10 @@
       return new LowlaDB(options);
     }
 
-    var config = this.config = LowlaDB._defaultOptions;
+    var config = this.config = {};
+    LowlaDB.utils.keys(LowlaDB._defaultOptions).forEach(function(key) {
+      config[key] = LowlaDB._defaultOptions[key];
+    });
     LowlaDB.utils.keys(options).forEach(function(key) {
       config[key] = options[key];
     });
@@ -241,6 +246,14 @@
     /* jshint validthis: true */
     this.liveCursors = {};
   }
+  
+  function _generateLowlaId(coll, doc) {
+    /* jshint validthis: true */
+    if (this.config.lowlaId) {
+      return this.config.lowlaId(coll, doc);
+    }
+    return coll.dbName + '.' + coll.collectionName + '$' + doc._id;    
+  }
 }
 )(typeof(exports) === 'object' ? exports : window);
 ;(function(LowlaDB) {
@@ -288,10 +301,6 @@
     return uuid;
   }
 
-  function generateLowlaId(coll, doc) {
-    return coll.dbName + '.' + coll.collectionName + '$' + doc._id;    
-  }
-  
   function mutateObject(obj, operations) {
     var opMode = false;
     for (var i in operations) {
@@ -365,7 +374,7 @@
     savedCallback = savedCallback || function(){};
     var coll = this;
     obj._id = obj._id || generateId();
-    lowlaId = lowlaId || generateLowlaId(coll, obj);
+    lowlaId = lowlaId || coll.lowla._generateLowlaId(coll, obj);
     var clientNs = coll.dbName + '.' + coll.collectionName;
 
     coll.lowla.emit('_saveHook', obj, lowlaId);

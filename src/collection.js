@@ -43,10 +43,6 @@
     return uuid;
   }
 
-  function generateLowlaId(coll, doc) {
-    return coll.dbName + '.' + coll.collectionName + '$' + doc._id;    
-  }
-  
   function mutateObject(obj, operations) {
     var opMode = false;
     for (var i in operations) {
@@ -120,7 +116,7 @@
     savedCallback = savedCallback || function(){};
     var coll = this;
     obj._id = obj._id || generateId();
-    lowlaId = lowlaId || generateLowlaId(coll, obj);
+    lowlaId = lowlaId || coll.lowla._generateLowlaId(coll, obj);
     var clientNs = coll.dbName + '.' + coll.collectionName;
 
     coll.lowla.emit('_saveHook', obj, lowlaId);

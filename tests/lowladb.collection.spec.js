@@ -38,6 +38,27 @@ testUtils.eachDatastore(function(dsName) {
     });
 
     describe('insert()', function () {
+      it('can insert documents using a custom lowlaId generator', function(done) {
+        lowla.close();
+        lowla = new LowlaDB({ datastore: dsName, lowlaId: ssnIdGenerator });
+        var coll = lowla.collection('dbName', 'CollName');
+        var doc = { ssn: '020-43-9853' };
+        
+        coll
+          .insert(doc)
+          .then(function() {
+            lowla.datastore.loadDocument('dbName.CollName', doc.ssn, testUtils.cb(done, function(foundDoc) {
+              should.exist(foundDoc);
+              foundDoc.ssn.should.equal(doc.ssn);
+            }));
+          })
+          .then(null, done);
+        
+        function ssnIdGenerator(coll, doc) {
+          return doc.ssn;
+        }
+      });
+      
       it('can create documents', function (done) {
         var coll = lowla.collection('dbName', 'CollName');
         coll.insert({a: 1})
@@ -160,7 +181,8 @@ testUtils.eachDatastore(function(dsName) {
               docs.should.have.length(1);
               docs[0].d.should.equal(4);
             }));
-          });
+          })
+          .then(null, done);
       });
 
       it('only retrieve documents from the given collection', function () {

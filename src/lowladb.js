@@ -24,6 +24,8 @@
   LowlaDB.prototype._metadata = _metadata;
   LowlaDB.prototype._cursorsOff = _cursorsOff;
   LowlaDB.prototype._processLoadPayload = _processLoadPayload;
+  LowlaDB.prototype._generateLowlaId = _generateLowlaId;
+  
   return LowlaDB;
   ///////////////
 
@@ -32,7 +34,10 @@
       return new LowlaDB(options);
     }
 
-    var config = this.config = LowlaDB._defaultOptions;
+    var config = this.config = {};
+    LowlaDB.utils.keys(LowlaDB._defaultOptions).forEach(function(key) {
+      config[key] = LowlaDB._defaultOptions[key];
+    });
     LowlaDB.utils.keys(options).forEach(function(key) {
       config[key] = options[key];
     });
@@ -240,6 +245,14 @@
   function _cursorsOff() {
     /* jshint validthis: true */
     this.liveCursors = {};
+  }
+  
+  function _generateLowlaId(coll, doc) {
+    /* jshint validthis: true */
+    if (this.config.lowlaId) {
+      return this.config.lowlaId(coll, doc);
+    }
+    return coll.dbName + '.' + coll.collectionName + '$' + doc._id;    
   }
 }
 )(typeof(exports) === 'object' ? exports : window);
