@@ -9,11 +9,46 @@ summary: The LowlaDB Syncer keeps track of modifications to documents and tells 
 ## Introduction ##
 The LowlaDB syncer acts as a intermediary between LowlaDB clients and adapters. Its role is to keep track of modifications to documents so that adapters can focus on the specifics of talking to their back-end while the syncer takes care of the housekeeping. It also provides a natural central point for notifying clients when data has changed. This allows push-style notifications using e.g., socket.io or Apple Push Notifications for real-time or near real-time applications again with no changes required to any adapters.
 
-LowlaDB includes a default implementation of the syncer that can be embedded within a Node.js application and stores its data in MongoDB. This implementation has a simple API that allows you to hook document modifications and trigger client notifications. 
+LowlaDB includes a default implementation of the syncer that can be embedded within a Node.js application and stores its data in any supported datastore. This implementation has a simple API that allows you to hook document modifications and trigger client notifications. 
 
 ##### Notes #####
 * Once the syncer has notified a client that new data is available, the client connects directly to the adapter to pull the data. Data created or modified on the client is again sent directly to the adapter. No data (other than document identifiers and document version identifiers) is ever sent to or through the syncer.
 * This allows the syncer to be hosted in a less secure environment than the adapter, providing more options for scaling the syncer independently of the adapter. This is valuable in situations where clients are polling the syncer for changes, but changes happen infrequently. The syncer can be scaled to handle the polling and the adapters only need handle the load when changes have occurred.
+
+</div>
+<div id="Install">
+  
+## Installation ##
+The default LowlaDB syncer is packaged as a Node.js module designed to plug into an Express application. To install it, modify your dependencies in `package.json` to include `lowladb-node`. If you want to use socket.io for real-time client updates then you need to specify that as well.
+
+{% highlight json %}
+{
+  "dependencies": {
+    "body-parser": "~1.8.1",
+    "cookie-parser": "~1.3.3",
+    "debug": "~2.0.0",
+    "express": "~4.9.0",
+    "jade": "~1.6.0",
+    "morgan": "~1.3.0",
+    "serve-favicon": "~2.1.3",
+    
+    "lowladb-node": "~0.0.5",
+    "socket.io": "^1.2.1"
+  }
+}
+{% endhighlight %}
+
+With the dependencies in place, you need to construct a new instance of the module, optionally providing configuration options.
+
+{% highlight javascript %}
+var lowladb = require('lowladb-node');
+var app = express();
+
+lowladb.configureRoutes(app, [optional options] );
+
+{% endhighlight %}
+
+The available options are described in the [API](#API) section below.
 
 </div>
 <div id="Spec">
@@ -121,5 +156,31 @@ If the server accepts the notification, it will respond with
 </div>
 </div>
 <div id="API">
+  
 ## API ##
+The default syncer has a single API, `configureRoutes` that is used to instantiate and configure both the default syncer and adapter.
+
+{% highlight javascript %}
+var lowladb = require('lowladb-node');
+var app = express();
+
+var config = lowladb.configureRoutes(app, options);
+
+{% endhighlight %}
+
+The following options are supported
+
+`datastore`
+: The datastore that the syncer should use. If omitted, the syncer uses its built-in NeDB datastore. Other datastores are typically installed as separate node modules: datastores for MongoDB and PostgreSQL are currently available.
+
+`notifier`
+: A method that will be called with the single string parameter `'changes'` when the syncer has new data available.
+
+`io`
+: An instance of socket.io. If `io` is provided and `notifier` is not then the syncer will create a notifier function using the supplied socket.io instance.
+
+`logger`
+: An object capable of performing logging with a console-like API. If omitted, the syncer uses `console`.
+
+
 </div>
