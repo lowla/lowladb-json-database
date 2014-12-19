@@ -61,3 +61,7 @@
 .bs-docs-sidebar .nav .nav>.active:focus>a {
     font-weight: 500;
 }
+
+.navbar-brand img {
+  margin-top: -5px;
+}
