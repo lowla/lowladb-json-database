@@ -50,9 +50,9 @@ This launches a basic Todo app, allowing you to create and delete todo actions, 
 <div id="How">
   
 ## How it Works ##
-When you save or edit a document, LowlaDB performs the following actions
+When you create or edit a document, LowlaDB performs the following actions
 
-1. The updated document is sent up to the LowlaDB Adapter running in your local Node.js server
+1. The updated document is saved locally and then sent up to the LowlaDB Adapter running in your local Node.js server
 2. The adapter saves the document and notifies the LowlaDB Syncer (also running in your local Node.js server) that an update is available.
 3. The Syncer notifies any listening clients that updates are available.
 4. Clients ask the Syncer for the LowlaIDs of any updated documents.
