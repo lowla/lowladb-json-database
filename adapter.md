@@ -13,6 +13,40 @@ LowlaDB adapters provide a common interface to a wide variety of back-end databa
 LowlaDB includes a default implementation of adapters for MongoDB and PostgreSQL that can be embedded within a Node.js application. These implementations are built around a common Node.js API. The easiest way to implement an adapter is to take advantage of this API, but it is also possible to create an adapter directly from the specification if you want to use a platform other than Node.js.
 
 </div>
+<div id="Install">
+  
+## Installation ##
+The default LowlaDB adapter is packaged as a Node.js module designed to plug into an Express application. To install it, modify your dependencies in `package.json` to include `lowladb-node`.
+
+{% highlight json %}
+{
+  "dependencies": {
+    "body-parser": "~1.8.1",
+    "cookie-parser": "~1.3.3",
+    "debug": "~2.0.0",
+    "express": "~4.9.0",
+    "jade": "~1.6.0",
+    "morgan": "~1.3.0",
+    "serve-favicon": "~2.1.3",
+    
+    "lowladb-node": "~0.0.5",
+  }
+}
+{% endhighlight %}
+
+With the dependencies in place, you need to construct a new instance of the module, optionally providing configuration options.
+
+{% highlight javascript %}
+var lowladb = require('lowladb-node');
+var app = express();
+
+lowladb.configureRoutes(app, [optional options] );
+
+{% endhighlight %}
+
+The available options are described in the [API](#API) section below.
+
+</div>
 <div id="Spec">
 
 ## Specification ##
@@ -148,5 +182,24 @@ The adapter should generate a response of the form
 <div id="API">
 	
 ## API ##
+The default adapter has a single API, `configureRoutes` that is used to instantiate and configure both the default syncer and adapter.
+
+{% highlight javascript %}
+var lowladb = require('lowladb-node');
+var app = express();
+
+var config = lowladb.configureRoutes(app, options);
+
+{% endhighlight %}
+
+The following options are supported
+
+`datastore`
+: The datastore that the adapter should use. If omitted, the adapter uses its built-in NeDB datastore.
+
+`logger`
+: An object capable of performing logging with a console-like API. If omitted, the syncer uses `console`.
+
+The default adapter itself contains generic functionality for communicating with the syncer and client and defers to an instance of a datastore to handle communication with the specific backend database or application. The API for datastores is small and designed to be straightforward to implement on many platforms. If you are planning on writing a datastore, we recommend starting from the [NeDB](https://github.com/lowla/lowladb-node/blob/master/lib/nedb.js) implementation. You can find further examples, along with examples of how to package a datastore for inclusion in LowlaDB, in the [MongoDB](https://github.com/lowla/lowladb-node-mongo) and [PostgreSQL](https://github.com/lowla/lowladb-node-postgresql) datastores. 
 
 </div>
