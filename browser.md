@@ -23,9 +23,31 @@ LowlaDB is available under the MIT license.
 </div>
 <div id="Install">
 ## Installation ##
+LowlaDB is available via Bower. To install it, modify your dependencies in `bower.json` to include `lowladb`.
+
+{% highlight json %}
+{
+  "name": "todomvc-jquery",
+  "dependencies": {
+    "todomvc-common": "~0.1.9",
+    "jquery": "~2.1.0",
+    "handlebars": "~1.3.0",
+    "director": "~1.2.2",
+    
+    "lowladb": "~0.0.3"
+  }
+}
+{% endhighlight %}
+
+Once you have run `bower install` to download lowladb, add a `script` tag to your page
+
+{% highlight html %}
+<script src="bower_components/lowladb/dist/lowladb.js"></script>
+{% endhighlight %}
 
 </div>
 <div id="API">
+  
 ## API ##
 
 <div id="LowlaDB">
@@ -134,6 +156,8 @@ Support for richer queries will be added later.
 
 If you know you only require a single record, you can use `findOne` rather than `find` to return the object directly without needing to iterate a cursor.
 
+LowlaDB maintains an internal index on the `_id` key field and can optimize queries involving equality matches on `_id`. For small databases the difference is negligible, but if you have thousands of documents then you should use `_id` as the document identifier in your application logic wherever possible.
+
 </div>
 <div id="Count">
     
@@ -225,11 +249,20 @@ You can add a callback or promise to confirm that the remove was successful.
 <div id="Syncing">
     
 ## Syncing ##
-You initiate sync with the `sync` method. This will perform an incremental, bi-directional sync with the specified server and, optionally, leave the sync channel open for real-time updates. If you choose to enable real-time sync, LowlaDB will call your `on` callbacks for any active queries whenever changes are made to a collection.
+You initiate sync with the `sync` method. This will perform an incremental, bi-directional sync with the specified server and, optionally, leave the sync channel open for further updates. If you do not provide any options, this method will sync once. Otherwise you can specify either scheduled syncs via polling or real-time updates via socket.io. However you sync, LowlaDB will always call your `on` callbacks for any active queries whenever changes are made to a collection.
 
 {% highlight javascript %}
-lowla.sync('syncServer', { /* options e.g. authentication, leave channel open */ });
+lowla.sync('syncServer', { /* options */ });
 {% endhighlight %}
+
+Supported options are
+
+`socket`
+: If socket.io is enabled on your page (by including a script tag for socket.io before the script tag for LowlaDB) then LowlaDB will automatically use it to provide real-time syncing. If you do *not* want this to happen then set the `socket` property to `false`.
+
+`pollFrequency`
+: The number of seconds to wait before syncing again. If specified, LowlaDB will not use socket.io. In most situations, real-time sync using socket.io offers both better performance and a better user experience than polling.
+
 
 <div id="SyncEvents">
     
