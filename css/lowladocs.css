@@ -14,13 +14,15 @@
     font-size: 12px;
 }
 
-.affix {
-/*    padding: 1em 0;*/
+.affix,
+.affix-top,
+.affix-bottom {
     position: static;
 }
 
 @media (min-width: 768px) and (min-height: 475px) {
     .affix {
+        padding: 1em 0;
         position: fixed;
     }
     
