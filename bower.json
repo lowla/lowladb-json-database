@@ -1,7 +1,7 @@
 {
   "name": "lowladb",
   "description": "The LowlaDB client library for modern browsers.",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "license": "MIT",
   "main": "dist/lowladb.js",
   "ignore": [
