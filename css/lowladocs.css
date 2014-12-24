@@ -67,3 +67,25 @@
 .navbar-brand img {
   margin-top: -5px;
 }
+
+thead {
+  background: SteelBlue;
+  color: white;
+}
+
+thead tr th {
+  text-align: center;
+}
+
+th,
+td {
+  padding: 5px 10px;
+}
+
+td {
+  text-align: right;
+}
+
+tbody tr td:nth-child(1) {
+  text-align: left;
+}
