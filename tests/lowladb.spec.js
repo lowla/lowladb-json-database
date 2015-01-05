@@ -1,18 +1,18 @@
+describe('LowlaDB API', function () {
+  'use strict';
 
-describe('LowlaDB API', function() {
-
-  describe('Events', function() {
+  describe('Events', function () {
     var lowla;
-    beforeEach(function() {
+    beforeEach(function () {
       lowla = new LowlaDB();
     });
 
-    afterEach(function() {
+    afterEach(function () {
       lowla.off();
       lowla = null;
     });
 
-    it('can register and receive a single event', function() {
+    it('can register and receive a single event', function () {
       var cb = sinon.stub();
       lowla.on('myEvent', cb);
       lowla.emit('myEvent');
@@ -21,7 +21,7 @@ describe('LowlaDB API', function() {
       cb.callCount.should.equal(2);
     });
 
-    it('can register multiple listeners to one event', function() {
+    it('can register multiple listeners to one event', function () {
       var cb1 = sinon.stub();
       var cb2 = sinon.stub();
       lowla.on('myEvent', cb1);
@@ -34,7 +34,7 @@ describe('LowlaDB API', function() {
       cb2.callCount.should.equal(2);
     });
 
-    it('can register multiple events', function() {
+    it('can register multiple events', function () {
       var cb1 = sinon.stub();
       var cb2 = sinon.stub();
       lowla.on('myEvent', cb1);
@@ -47,7 +47,7 @@ describe('LowlaDB API', function() {
       cb2.callCount.should.equal(1);
     });
 
-    it('can remove a listener from an event', function() {
+    it('can remove a listener from an event', function () {
       var cb1 = sinon.stub();
       var cb2 = sinon.stub();
       lowla.on('myEvent', cb1);
@@ -61,7 +61,7 @@ describe('LowlaDB API', function() {
       cb2.callCount.should.equal(2);
     });
 
-    it('can remove all listeners from an event', function() {
+    it('can remove all listeners from an event', function () {
       var cb1 = sinon.stub();
       var cb2 = sinon.stub();
       var cb3 = sinon.stub();
@@ -83,5 +83,4 @@ describe('LowlaDB API', function() {
       cb3.callCount.should.equal(2);
     });
   });
-
 });

@@ -2,14 +2,16 @@
  * Created by michael on 9/22/14.
  */
 
-(function(exports) {
+/* global exports */
+/* global -LowlaDB */
+(function (exports) {
   'use strict';
 
   // Public API
   exports.LowlaDB = LowlaDB;
   LowlaDB.registerDatastore = registerDatastore;
 
-  LowlaDB.prototype.close = close;
+  LowlaDB.prototype.close = closeDb;
   LowlaDB.prototype.collection = collection;
   LowlaDB.prototype.db = db;
   LowlaDB.prototype.emit = emit;
@@ -20,12 +22,12 @@
 
   // Private API
   LowlaDB._datastores = {};
-  LowlaDB._defaultOptions = { datastore: 'IndexedDB' };
+  LowlaDB._defaultOptions = {datastore: 'IndexedDB'};
   LowlaDB.prototype._metadata = _metadata;
   LowlaDB.prototype._cursorsOff = _cursorsOff;
   LowlaDB.prototype._processLoadPayload = _processLoadPayload;
   LowlaDB.prototype._generateLowlaId = _generateLowlaId;
-  
+
   return LowlaDB;
   ///////////////
 
@@ -35,10 +37,10 @@
     }
 
     var config = this.config = {};
-    LowlaDB.utils.keys(LowlaDB._defaultOptions).forEach(function(key) {
+    LowlaDB.utils.keys(LowlaDB._defaultOptions).forEach(function (key) {
       config[key] = LowlaDB._defaultOptions[key];
     });
-    LowlaDB.utils.keys(options).forEach(function(key) {
+    LowlaDB.utils.keys(options).forEach(function (key) {
       config[key] = options[key];
     });
 
@@ -79,13 +81,13 @@
       var theIo = (options.io || window.io);
       var pushPullFn = LowlaDB.utils.debounce(pushPull, 250);
       var socket = theIo.connect(serverUrl);
-      socket.on('changes', function() {
+      socket.on('changes', function () {
         pushPullFn();
       });
-      socket.on('reconnect', function() {
+      socket.on('reconnect', function () {
         pushPullFn();
       });
-      lowla.on('_pending', function() {
+      lowla.on('_pending', function () {
         pushPullFn();
       });
     }
@@ -99,10 +101,10 @@
       lowla._syncing = true;
       lowla.emit('syncBegin');
       return lowla._syncCoordinator.pushChanges()
-        .then(function() {
+        .then(function () {
           return lowla._syncCoordinator.fetchChanges();
         })
-        .then(function(arg) {
+        .then(function (arg) {
           lowla._syncing = false;
           lowla.emit('syncEnd');
           if (lowla._pendingSync) {
@@ -110,7 +112,7 @@
             return pushPull();
           }
           return arg;
-        }, function(err) {
+        }, function (err) {
           lowla._syncing = lowla._pendingSync = false;
           lowla.emit('syncEnd');
           throw err;
@@ -121,8 +123,8 @@
       if (options.pollFrequency) {
         var pollFunc = function () {
           pushPull().then(function () {
-              setTimeout(pollFunc, options.pollFrequency * 1000);
-            });
+            setTimeout(pollFunc, options.pollFrequency * 1000);
+          });
         };
 
         setTimeout(pollFunc, options.pollFrequency * 1000);
@@ -139,7 +141,7 @@
       lowlaEvents[eventName].push(callback);
     }
     else {
-      lowlaEvents[eventName] = [ callback ];
+      lowlaEvents[eventName] = [callback];
     }
   }
 
@@ -168,13 +170,13 @@
     var eventName = args.shift();
     var lowlaEvents = this.events;
     if (lowlaEvents[eventName]) {
-      lowlaEvents[eventName].forEach(function(listener) {
+      lowlaEvents[eventName].forEach(function (listener) {
         listener.apply(listener, args);
       });
     }
   }
 
-  function close() {
+  function closeDb() {
     /* jshint validthis: true */
     this.off();
     this._cursorsOff();
@@ -185,7 +187,7 @@
     /* jshint validthis: true */
     var lowla = this;
     return Promise.resolve()
-      .then(function() {
+      .then(function () {
         if (typeof(urlOrObj) === 'string') {
           return LowlaDB.utils.getJSON(urlOrObj).then(function (payload) {
             return lowla._processLoadPayload(payload);
@@ -195,12 +197,12 @@
           return lowla._processLoadPayload(urlOrObj);
         }
       })
-      .then(function(res) {
+      .then(function (res) {
         if (callback) {
           callback(null, res);
         }
         return res;
-      }, function(err) {
+      }, function (err) {
         if (callback) {
           callback(err);
         }
@@ -216,13 +218,13 @@
     }
 
     return LowlaDB.SyncCoordinator._processPullPayload(lowla, lowla.datastore, payload.documents[offset])
-      .then(function() {
+      .then(function () {
         ++offset;
         if (offset < payload.documents.length) {
           return lowla._processLoadPayload(payload, offset);
         }
       })
-      .then(function() {
+      .then(function () {
         return LowlaDB.SyncCoordinator._updateSequence(lowla, payload.sequence);
       });
   }
@@ -231,13 +233,13 @@
     /* jshint validthis: true */
     var datastore = this.datastore;
     if (newMeta) {
-      return new Promise(function(resolve, reject) {
-        datastore.updateDocument("", "$metadata", newMeta, resolve, reject);
+      return new Promise(function (resolve, reject) {
+        datastore.updateDocument('', '$metadata', newMeta, resolve, reject);
       });
     }
     else {
       return new Promise(function (resolve, reject) {
-        datastore.loadDocument("", "$metadata", resolve, reject);
+        datastore.loadDocument('', '$metadata', resolve, reject);
       });
     }
   }
@@ -246,13 +248,12 @@
     /* jshint validthis: true */
     this.liveCursors = {};
   }
-  
+
   function _generateLowlaId(coll, doc) {
     /* jshint validthis: true */
     if (this.config.lowlaId) {
       return this.config.lowlaId(coll, doc);
     }
-    return coll.dbName + '.' + coll.collectionName + '$' + doc._id;    
+    return coll.dbName + '.' + coll.collectionName + '$' + doc._id;
   }
-}
-)(typeof(exports) === 'object' ? exports : window);
+})(typeof(exports) === 'object' ? exports : window);

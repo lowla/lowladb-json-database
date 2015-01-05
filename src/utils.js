@@ -2,14 +2,18 @@
  * Created by michael on 10/10/14.
  */
 
-(function(LowlaDB) {
+(function (LowlaDB) {
+  'use strict';
+
   var utils = LowlaDB.utils || {};
 
   function createXHR() {
+    /* global ActiveXObject */
+    /* global alert */
     var xhr;
     if (window.ActiveXObject) {
       try {
-        xhr = new ActiveXObject("Microsoft.XMLHTTP");
+        xhr = new ActiveXObject('Microsoft.XMLHTTP');
       }
       catch (e) {
         alert(e.message);
@@ -73,7 +77,7 @@
     return new Blob(byteArrays, {type: contentType});
   };
 
-  utils.keys = function(obj) {
+  utils.keys = function (obj) {
     if (!obj) {
       return [];
     }
@@ -92,22 +96,28 @@
     return answer;
   };
 
-  utils.isArray = function(obj) {
+  utils.isArray = function (obj) {
     return (obj instanceof Array);
   };
 
-  utils.debounce = function(func, wait, immediate) {
+  utils.debounce = function (func, wait, immediate) {
     var timeout;
-    return function() {
-      var context = this, args = arguments;
-      var later = function() {
+    return function () {
+      var context = this;
+      var args = arguments;
+      var later = function () {
         timeout = null;
-        if (!immediate) func.apply(context, args);
+        if (!immediate) {
+          func.apply(context, args);
+        }
       };
+
       var callNow = immediate && !timeout;
       clearTimeout(timeout);
       timeout = setTimeout(later, wait);
-      if (callNow) func.apply(context, args);
+      if (callNow) {
+        func.apply(context, args);
+      }
     };
   };
 

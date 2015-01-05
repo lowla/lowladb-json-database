@@ -2,7 +2,7 @@
  * Created by michael on 9/22/14.
  */
 
-(function(exports) {
+(function (exports) {
   'use strict';
 
   // Public API
@@ -20,12 +20,12 @@
 
   // Private API
   LowlaDB._datastores = {};
-  LowlaDB._defaultOptions = { datastore: 'IndexedDB' };
+  LowlaDB._defaultOptions = {datastore: 'IndexedDB'};
   LowlaDB.prototype._metadata = _metadata;
   LowlaDB.prototype._cursorsOff = _cursorsOff;
   LowlaDB.prototype._processLoadPayload = _processLoadPayload;
   LowlaDB.prototype._generateLowlaId = _generateLowlaId;
-  
+
   return LowlaDB;
   ///////////////
 
@@ -35,10 +35,10 @@
     }
 
     var config = this.config = {};
-    LowlaDB.utils.keys(LowlaDB._defaultOptions).forEach(function(key) {
+    LowlaDB.utils.keys(LowlaDB._defaultOptions).forEach(function (key) {
       config[key] = LowlaDB._defaultOptions[key];
     });
-    LowlaDB.utils.keys(options).forEach(function(key) {
+    LowlaDB.utils.keys(options).forEach(function (key) {
       config[key] = options[key];
     });
 
@@ -79,13 +79,13 @@
       var theIo = (options.io || window.io);
       var pushPullFn = LowlaDB.utils.debounce(pushPull, 250);
       var socket = theIo.connect(serverUrl);
-      socket.on('changes', function() {
+      socket.on('changes', function () {
         pushPullFn();
       });
-      socket.on('reconnect', function() {
+      socket.on('reconnect', function () {
         pushPullFn();
       });
-      lowla.on('_pending', function() {
+      lowla.on('_pending', function () {
         pushPullFn();
       });
     }
@@ -99,10 +99,10 @@
       lowla._syncing = true;
       lowla.emit('syncBegin');
       return lowla._syncCoordinator.pushChanges()
-        .then(function() {
+        .then(function () {
           return lowla._syncCoordinator.fetchChanges();
         })
-        .then(function(arg) {
+        .then(function (arg) {
           lowla._syncing = false;
           lowla.emit('syncEnd');
           if (lowla._pendingSync) {
@@ -110,7 +110,7 @@
             return pushPull();
           }
           return arg;
-        }, function(err) {
+        }, function (err) {
           lowla._syncing = lowla._pendingSync = false;
           lowla.emit('syncEnd');
           throw err;
@@ -121,8 +121,8 @@
       if (options.pollFrequency) {
         var pollFunc = function () {
           pushPull().then(function () {
-              setTimeout(pollFunc, options.pollFrequency * 1000);
-            });
+            setTimeout(pollFunc, options.pollFrequency * 1000);
+          });
         };
 
         setTimeout(pollFunc, options.pollFrequency * 1000);
@@ -139,7 +139,7 @@
       lowlaEvents[eventName].push(callback);
     }
     else {
-      lowlaEvents[eventName] = [ callback ];
+      lowlaEvents[eventName] = [callback];
     }
   }
 
@@ -168,7 +168,7 @@
     var eventName = args.shift();
     var lowlaEvents = this.events;
     if (lowlaEvents[eventName]) {
-      lowlaEvents[eventName].forEach(function(listener) {
+      lowlaEvents[eventName].forEach(function (listener) {
         listener.apply(listener, args);
       });
     }
@@ -185,7 +185,7 @@
     /* jshint validthis: true */
     var lowla = this;
     return Promise.resolve()
-      .then(function() {
+      .then(function () {
         if (typeof(urlOrObj) === 'string') {
           return LowlaDB.utils.getJSON(urlOrObj).then(function (payload) {
             return lowla._processLoadPayload(payload);
@@ -195,12 +195,12 @@
           return lowla._processLoadPayload(urlOrObj);
         }
       })
-      .then(function(res) {
+      .then(function (res) {
         if (callback) {
           callback(null, res);
         }
         return res;
-      }, function(err) {
+      }, function (err) {
         if (callback) {
           callback(err);
         }
@@ -216,13 +216,13 @@
     }
 
     return LowlaDB.SyncCoordinator._processPullPayload(lowla, lowla.datastore, payload.documents[offset])
-      .then(function() {
+      .then(function () {
         ++offset;
         if (offset < payload.documents.length) {
           return lowla._processLoadPayload(payload, offset);
         }
       })
-      .then(function() {
+      .then(function () {
         return LowlaDB.SyncCoordinator._updateSequence(lowla, payload.sequence);
       });
   }
@@ -231,13 +231,13 @@
     /* jshint validthis: true */
     var datastore = this.datastore;
     if (newMeta) {
-      return new Promise(function(resolve, reject) {
-        datastore.updateDocument("", "$metadata", newMeta, resolve, reject);
+      return new Promise(function (resolve, reject) {
+        datastore.updateDocument('', '$metadata', newMeta, resolve, reject);
       });
     }
     else {
       return new Promise(function (resolve, reject) {
-        datastore.loadDocument("", "$metadata", resolve, reject);
+        datastore.loadDocument('', '$metadata', resolve, reject);
       });
     }
   }
@@ -246,17 +246,16 @@
     /* jshint validthis: true */
     this.liveCursors = {};
   }
-  
+
   function _generateLowlaId(coll, doc) {
     /* jshint validthis: true */
     if (this.config.lowlaId) {
       return this.config.lowlaId(coll, doc);
     }
-    return coll.dbName + '.' + coll.collectionName + '$' + doc._id;    
+    return coll.dbName + '.' + coll.collectionName + '$' + doc._id;
   }
-}
-)(typeof(exports) === 'object' ? exports : window);
-;(function(LowlaDB) {
+})(typeof(exports) === 'object' ? exports : window);
+;(function (LowlaDB) {
   'use strict';
 
   LowlaDB.Collection = Collection;
@@ -349,29 +348,30 @@
     /*jshint validthis:true */
     var coll = this;
     var savedDoc = null;
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       coll.datastore.transact(oldDocId ? doRemoveThenUpdate : doUpdate, resolve, reject);
 
       function doRemoveThenUpdate(tx) {
-        coll._removeDocumentInTx(tx, oldDocId, true, function() {
+        coll._removeDocumentInTx(tx, oldDocId, true, function () {
           doUpdate(tx);
         });
       }
 
       function doUpdate(tx) {
-        coll._updateDocumentInTx(tx, lowlaId, obj, flagEight, function(doc) {
+        coll._updateDocumentInTx(tx, lowlaId, obj, flagEight, function (doc) {
           savedDoc = doc;
         });
       }
     })
-      .then(function() {
+      .then(function () {
         return savedDoc;
       });
   }
 
   function _updateDocumentInTx(tx, lowlaId, obj, flagEight, savedCallback) {
     /*jshint validthis:true */
-    savedCallback = savedCallback || function(){};
+    savedCallback = savedCallback || function () {
+    };
     var coll = this;
     obj._id = obj._id || generateId();
     lowlaId = lowlaId || coll.lowla._generateLowlaId(coll, obj);
@@ -402,7 +402,7 @@
   function _removeDocument(lowlaID, flagEight) {
     /*jshint validthis:true */
     var coll = this;
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       coll.datastore.transact(doUpdate, resolve, reject);
       function doUpdate(tx) {
         coll._removeDocumentInTx(tx, lowlaID, flagEight);
@@ -411,11 +411,12 @@
   }
 
   function _removeDocumentInTx(tx, lowlaID, flagEight, removedCallback) {
-    removedCallback = removedCallback || function(){};
-    
+    removedCallback = removedCallback || function () {
+    };
+
     /*jshint validthis:true */
     var clientNs = this.dbName + '.' + this.collectionName;
-    
+
     if (flagEight) {
       removeOnly(tx);
     }
@@ -443,7 +444,7 @@
     }
 
     var answer = true;
-    LowlaDB.utils.keys(oldObj).forEach(function(oldKey) {
+    LowlaDB.utils.keys(oldObj).forEach(function (oldKey) {
       if (!answer) {
         return answer;
       }
@@ -468,8 +469,9 @@
 
     return answer;
   }
+
   function updateWithMeta(tx, clientNs, lowlaID, nextFn, newDoc) {
-    tx.load("", "$metadata", checkMeta);
+    tx.load('', '$metadata', checkMeta);
 
     function checkMeta(metaDoc, tx) {
       if (!metaDoc || !metaDoc.changes || !metaDoc.changes[lowlaID]) {
@@ -478,7 +480,7 @@
       else if (newDoc) {
         if (isSameObject(metaDoc.changes[lowlaID], newDoc)) {
           delete metaDoc.changes[lowlaID];
-          tx.save("", "$metadata", metaDoc, nextFn);
+          tx.save('', '$metadata', metaDoc, nextFn);
         }
         else {
           nextFn(metaDoc, tx);
@@ -493,7 +495,7 @@
         metaDoc = metaDoc || {changes: {}};
         metaDoc.changes = metaDoc.changes || {};
         metaDoc.changes[lowlaID] = oldDoc;
-        tx.save("", "$metadata", metaDoc, nextFn);
+        tx.save('', '$metadata', metaDoc, nextFn);
       }
     }
   }
@@ -502,10 +504,10 @@
     /*jshint validthis:true */
     var coll = this;
     var savedDoc = [];
-    return new Promise(function(resolve, reject) {
-      var docs = LowlaDB.utils.isArray(arg) ? arg : [ arg ];
-      docs.forEach(function(doc) {
-        LowlaDB.utils.keys(doc).forEach(function(key) {
+    return new Promise(function (resolve, reject) {
+      var docs = LowlaDB.utils.isArray(arg) ? arg : [arg];
+      docs.forEach(function (doc) {
+        LowlaDB.utils.keys(doc).forEach(function (key) {
           if (key.substring(0, 1) === '$') {
             reject(Error('The dollar ($) prefixed field ' + key + ' is not valid'));
           }
@@ -527,7 +529,7 @@
         }
       }
     })
-      .then(function() {
+      .then(function () {
         coll.lowla.emit('_pending');
         if (!LowlaDB.utils.isArray(arg)) {
           savedDoc = savedDoc.length ? savedDoc[0] : null;
@@ -537,7 +539,7 @@
         }
         return savedDoc;
       })
-      .catch(function(e) {
+      .catch(function (e) {
         if (callback) {
           callback(e);
         }
@@ -549,16 +551,16 @@
     /*jshint validthis:true */
     var coll = this;
     return Promise.resolve()
-      .then(function() {
+      .then(function () {
         return LowlaDB.Cursor(coll, filter).limit(1).toArray();
       })
-      .then(function(arr) {
+      .then(function (arr) {
         var obj = (arr && arr.length > 0) ? arr[0] : undefined;
         if (callback) {
           callback(null, obj);
         }
         return obj;
-      }, function(err) {
+      }, function (err) {
         if (callback) {
           callback(err);
         }
@@ -575,7 +577,7 @@
     /*jshint validthis:true */
     var coll = this;
     var savedObj = null;
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       coll.datastore.transact(doFind, resolve, reject);
 
       function doFind(tx) {
@@ -588,18 +590,18 @@
         }
 
         var obj = mutateObject(docArr[0].document, operations);
-        coll._updateDocumentInTx(tx, docArr[0].lowlaId, obj, false, function(obj) {
+        coll._updateDocumentInTx(tx, docArr[0].lowlaId, obj, false, function (obj) {
           savedObj = obj;
         }, reject);
       }
     })
-      .then(function() {
+      .then(function () {
         coll.lowla.emit('_pending');
         if (callback) {
           callback(null, savedObj);
         }
         return savedObj;
-      }, function(err) {
+      }, function (err) {
         if (callback) {
           callback(err);
         }
@@ -617,10 +619,10 @@
     }
 
     return Promise.resolve()
-      .then(function() {
+      .then(function () {
         return coll.find(filter)._applyFilter();
       })
-      .then(function(arr) {
+      .then(function (arr) {
         var countRemoved = 0;
         return new Promise(function (resolve, reject) {
           if (0 === arr.length) {
@@ -644,13 +646,13 @@
             return countRemoved;
           });
       })
-      .then(function(count) {
+      .then(function (count) {
         coll.lowla.emit('_pending');
         if (callback) {
           callback(null, count);
         }
         return count;
-      }, function(err) {
+      }, function (err) {
         if (callback) {
           callback(err);
         }
@@ -667,11 +669,12 @@
 
     return this.find(query).count(callback);
   }
-})(LowlaDB);;/**
+})(LowlaDB);
+;/**
  * Created by michael on 10/15/14.
  */
 
-(function(LowlaDB) {
+(function (LowlaDB) {
   'use strict';
 
   // Public API
@@ -760,7 +763,7 @@
       options._id = cursor._filter._id;
     }
     tx.scan({
-      document: collectDocs, 
+      document: collectDocs,
       done: processDocs,
       options: options
     });
@@ -782,7 +785,7 @@
       }
 
       if (data.length && cursor._options.showPending) {
-        tx.load("", "$metadata", loadMetaForPending);
+        tx.load('', '$metadata', loadMetaForPending);
       }
       else {
         try {
@@ -796,7 +799,7 @@
 
     function loadMetaForPending(metaDoc, tx) {
       if (metaDoc && metaDoc.changes) {
-        data.forEach(function(doc) {
+        data.forEach(function (doc) {
           doc.document.$pending = metaDoc.changes.hasOwnProperty(doc.lowlaId);
         });
       }
@@ -806,14 +809,14 @@
 
     function sortData() {
       var sort = cursor._options.sort;
-      data.sort(function(a,b) {
+      data.sort(function (a, b) {
         if (typeof(sort) === 'string') {
           return docCompareFunc(sort, a, b);
         }
         else if (sort instanceof Array) {
           var answer = 0;
 
-          sort.every(function(criterion) {
+          sort.every(function (criterion) {
             var field, order;
             if (criterion instanceof Array) {
               field = criterion[0];
@@ -842,15 +845,15 @@
     /* jshint validthis:true */
     var cursor = this;
     var answer;
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       cursor._collection.datastore.transact(applyFilter, resolve, reject);
       function applyFilter(tx) {
-        cursor._applyFilterInTx(tx, function(docs) {
+        cursor._applyFilterInTx(tx, function (docs) {
           answer = docs;
         });
       }
     })
-      .then(function() {
+      .then(function () {
         return answer;
       });
   }
@@ -874,7 +877,7 @@
       coll.lowla.liveCursors[key] = [];
     }
 
-    coll.lowla.liveCursors[key].push({ cursor: this, callback: callback });
+    coll.lowla.liveCursors[key].push({cursor: this, callback: callback});
     callback(null, this);
   }
 
@@ -893,17 +896,17 @@
 
   function limit(amount) {
     /* jshint validthis:true */
-    return this.cloneWithOptions({ limit: amount });
+    return this.cloneWithOptions({limit: amount});
   }
 
   function sort(keyOrList) {
     /* jshint validthis:true */
-    return this.cloneWithOptions({ sort: keyOrList });
+    return this.cloneWithOptions({sort: keyOrList});
   }
 
   function showPending() {
     /* jshint validthis:true */
-    return this.cloneWithOptions({ showPending: true });
+    return this.cloneWithOptions({showPending: true});
   }
 
   function each(callback) {
@@ -928,18 +931,18 @@
     /* jshint validthis:true */
     var cursor = this;
     return Promise.resolve()
-      .then(function() {
+      .then(function () {
         return cursor._applyFilter();
       })
-      .then(function(filtered) {
-        filtered = filtered.map(function(doc) {
+      .then(function (filtered) {
+        filtered = filtered.map(function (doc) {
           return doc.document;
         });
         if (callback) {
           callback(null, filtered);
         }
         return filtered;
-      }, function(err) {
+      }, function (err) {
         if (callback) {
           callback(err);
         }
@@ -960,19 +963,19 @@
     }
 
     if (cursor._filter) {
-      return cursor.toArray().then(function(arr) {
+      return cursor.toArray().then(function (arr) {
         return success(arr.length);
       }, error);
     }
     else {
-      return new Promise(function(resolve, reject) {
+      return new Promise(function (resolve, reject) {
         var coll = cursor._collection;
         var clientNs = coll.dbName + '.' + coll.collectionName;
         cursor._collection.datastore.countAll(clientNs, resolve);
       })
-      .then(success, error);
+        .then(success, error);
     }
-    
+
     function success(count) {
       if (0 !== cursor._options.limit) {
         count = Math.min(count, cursor._options.limit);
@@ -982,6 +985,7 @@
       }
       return count;
     }
+
     function error(err) {
       if (callback) {
         callback(err);
@@ -990,43 +994,45 @@
     }
   }
 
-})(LowlaDB);;/**
+})(LowlaDB);
+;/**
  * Created by michael on 10/15/14.
  */
 
-(function(LowlaDB) {
+(function (LowlaDB) {
 
-  var indexedDB = this.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
-  var Datastore = function() {
+  var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+
+  var Datastore = function () {
     if (!(this instanceof Datastore)) {
       return new Datastore();
     }
   };
 
   Datastore._makeKey = _makeKey;
-  
+
   function _makeKey(clientNs, lowlaId) {
     return clientNs + '$' + lowlaId;
   }
 
   var _ready = false;
-  var db = function() {
+  var db = function () {
     if (!_ready) {
       if (!indexedDB) {
         throw Error('Unable to identify IndexedDB instance');
       }
 
       _ready = new Promise(function (resolve, reject) {
-        var request = indexedDB.open("lowla", 1);
+        var request = indexedDB.open('lowla', 1);
         request.onupgradeneeded = function (e) {
           var db = e.target.result;
 
           e.target.transaction.onerror = reject;
 
-          var store = db.createObjectStore("lowla");
+          var store = db.createObjectStore('lowla');
           // Composite indexes are flaky on Safari so we just index on _id and let the caller
           // perform clientNs filtering.
-          store.createIndex("_id", "document._id", { unique: false});
+          store.createIndex('_id', 'document._id', {unique: false});
         };
 
         request.onsuccess = function (e) {
@@ -1042,25 +1048,27 @@
     return _ready;
   };
 
-  Datastore.prototype.scanDocuments = function(docFn, doneFn, errFn) {
+  Datastore.prototype.scanDocuments = function (docFn, doneFn, errFn) {
     this.transact(
-      function(tx) {
+      function (tx) {
         tx.scan(docFn, doneFn, errFn);
       },
-      function() {},
+      function () {
+      },
       errFn
     );
   };
 
-  Datastore.prototype.transact = function(callback, doneCallback, errCallback) {
-    errCallback = errCallback || function(){};
+  Datastore.prototype.transact = function (callback, doneCallback, errCallback) {
+    errCallback = errCallback || function () {
+    };
 
-    db().then(function(db) {
-      var tx = db.transaction(["lowla"], "readwrite");
-      tx.oncomplete = function(evt) {
+    db().then(function (db) {
+      var tx = db.transaction(['lowla'], 'readwrite');
+      tx.oncomplete = function (evt) {
         doneCallback();
       };
-      tx.onerror = function(e) {
+      tx.onerror = function (e) {
         errCallback(e);
       };
 
@@ -1082,7 +1090,7 @@
 
       function loadInTx(clientNs, lowlaId, loadCallback, loadErrCallback) {
         loadErrCallback = loadErrCallback || errCallback;
-        var store = tx.objectStore("lowla");
+        var store = tx.objectStore('lowla');
         var keyRange = IDBKeyRange.only(_makeKey(clientNs, lowlaId));
         var request = store.openCursor(keyRange);
         request.onsuccess = function (evt) {
@@ -1094,11 +1102,11 @@
 
       function saveInTx(clientNs, lowlaId, doc, saveCallback, saveErrCallback) {
         saveErrCallback = saveErrCallback || errCallback;
-        var store = tx.objectStore("lowla");
+        var store = tx.objectStore('lowla');
         var request = store.put({
-          "clientNs": clientNs,
-          "lowlaId": lowlaId,
-          "document": doc
+          'clientNs': clientNs,
+          'lowlaId': lowlaId,
+          'document': doc
         }, _makeKey(clientNs, lowlaId));
 
         request.onsuccess = function (e) {
@@ -1115,17 +1123,19 @@
       function scanInTx(scanCallback, scanDoneCallback, scanErrCallback) {
         var options = {};
         if (typeof(scanCallback) === 'object') {
-          scanDoneCallback = scanCallback.done || function () {};
+          scanDoneCallback = scanCallback.done || function () {
+          };
           scanErrCallback = scanCallback.error;
           options = scanCallback.options || {};
-          scanCallback = scanCallback.document || function () {};
+          scanCallback = scanCallback.document || function () {
+          };
         }
         scanErrCallback = scanErrCallback || errCallback;
-        var store = tx.objectStore("lowla");
-        
+        var store = tx.objectStore('lowla');
+
         var request;
         if (options._id) {
-          var index = store.index("_id");
+          var index = store.index('_id');
           var keyRange = IDBKeyRange.only(options._id);
           request = index.openCursor(keyRange);
         }
@@ -1151,8 +1161,8 @@
 
       function removeInTx(clientNs, lowlaId, removeDoneCallback, removeErrCallback) {
         removeErrCallback = removeErrCallback || errCallback;
-        var request = tx.objectStore("lowla").delete(_makeKey(clientNs, lowlaId));
-        request.onsuccess = function() {
+        var request = tx.objectStore('lowla').delete(_makeKey(clientNs, lowlaId));
+        request.onsuccess = function () {
           if (removeDoneCallback) {
             removeDoneCallback(txWrapper);
           }
@@ -1163,16 +1173,18 @@
 
   };
 
-  Datastore.prototype.loadDocument = function(clientNs, lowlaId, docFn, errFn) {
-    db().then(function(db) {
+  Datastore.prototype.loadDocument = function (clientNs, lowlaId, docFn, errFn) {
+    db().then(function (db) {
       if (typeof(docFn) === 'object') {
-        errFn = docFn.error || function (err) { throw err; };
+        errFn = docFn.error || function (err) {
+          throw err;
+        };
         docFn = docFn.document || function () {
         };
       }
 
-      var trans = db.transaction(["lowla"], "readwrite");
-      var store = trans.objectStore("lowla");
+      var trans = db.transaction(['lowla'], 'readwrite');
+      var store = trans.objectStore('lowla');
 
       var keyRange = IDBKeyRange.only(_makeKey(clientNs, lowlaId));
       var cursorRequest = store.openCursor(keyRange);
@@ -1193,14 +1205,14 @@
     });
   };
 
-  Datastore.prototype.updateDocument = function(clientNs, lowlaId, doc, doneFn, errorFn) {
+  Datastore.prototype.updateDocument = function (clientNs, lowlaId, doc, doneFn, errorFn) {
     db().then(function (db) {
-      var trans = db.transaction(["lowla"], "readwrite");
-      var store = trans.objectStore("lowla");
+      var trans = db.transaction(['lowla'], 'readwrite');
+      var store = trans.objectStore('lowla');
       var request = store.put({
-        "clientNs": clientNs,
-        "lowlaId": lowlaId,
-        "document": doc
+        'clientNs': clientNs,
+        'lowlaId': lowlaId,
+        'document': doc
       }, _makeKey(clientNs, lowlaId));
 
       trans.oncomplete = function (e) {
@@ -1217,37 +1229,37 @@
     });
   };
 
-  Datastore.prototype.close = function() {
+  Datastore.prototype.close = function () {
     if (_ready) {
-      return _ready.then(function(db) {
+      return _ready.then(function (db) {
         _ready = false;
         db.close();
       });
     }
   };
 
-  Datastore.prototype.countAll = function(clientNs, doneFn, errFn) {
-    db().then(function(db) {
-      var trans = db.transaction(["lowla"], "readwrite");
-      var store = trans.objectStore("lowla");
+  Datastore.prototype.countAll = function (clientNs, doneFn, errFn) {
+    db().then(function (db) {
+      var trans = db.transaction(['lowla'], 'readwrite');
+      var store = trans.objectStore('lowla');
       var keyRange = IDBKeyRange.bound(clientNs + '$', clientNs + '%', false, true);
       var request = store.count(keyRange);
-      request.onsuccess = function() {
+      request.onsuccess = function () {
         doneFn(request.result);
       };
       if (errFn) {
-        request.onerror = function(e) {
+        request.onerror = function (e) {
           errFn(e);
         };
       }
     });
   };
-  
+
   LowlaDB.registerDatastore('IndexedDB', new Datastore());
 
   return LowlaDB;
-})(LowlaDB);;
-(function(LowlaDB) {
+})(LowlaDB);
+;(function (LowlaDB) {
   'use strict';
 
   // Public API
@@ -1287,10 +1299,10 @@
       }
     }
 
-    options = options || { namesOnly: false };
+    options = options || {namesOnly: false};
     collection = collection || '';
 
-    var data = { };
+    var data = {};
     var dbPrefix = this.name + '.' + collection;
     return new Promise(fetchNames)
       .then(applyOptions)
@@ -1299,13 +1311,13 @@
 
     function fetchNames(resolve, reject) {
       datastore.scanDocuments({
-        document: function(doc) {
+        document: function (doc) {
           if (doc.clientNs.indexOf(dbPrefix) === 0) {
             data[doc.clientNs] = true;
           }
 
         },
-        done: function() {
+        done: function () {
           return resolve(data);
         },
         error: reject
@@ -1343,11 +1355,12 @@
     }
   }
 
-})(LowlaDB);;/**
+})(LowlaDB);
+;/**
  * Created by michael on 11/13/14.
  */
 
-(function(LowlaDB) {
+(function (LowlaDB) {
   var data = {};
 
   // Public API
@@ -1357,7 +1370,7 @@
   MemoryDatastore.prototype.updateDocument = updateDocument;
   MemoryDatastore.prototype.close = close;
   MemoryDatastore.prototype.countAll = countAll;
-  
+
   LowlaDB.registerDatastore('Memory', new MemoryDatastore());
   return LowlaDB;
   ///////////////
@@ -1371,7 +1384,7 @@
   function _copyObj(obj) {
     if (obj) {
       var copy = {};
-      LowlaDB.utils.keys(obj).forEach(function(key) {
+      LowlaDB.utils.keys(obj).forEach(function (key) {
         if (typeof obj[key] === 'object') {
           copy[key] = _copyObj(obj[key]);
         }
@@ -1390,7 +1403,7 @@
   }
 
   function updateDocument(clientNs, lowlaID, doc, doneFn) {
-    data[clientNs + "$" + lowlaID] = {
+    data[clientNs + '$' + lowlaID] = {
       clientNs: clientNs,
       lowlaId: lowlaID,
       document: doc
@@ -1400,7 +1413,8 @@
 
   function loadDocument(clientNs, lowlaID, docFn) {
     if (typeof(docFn) === 'object') {
-      docFn = docFn.document || function () {};
+      docFn = docFn.document || function () {
+      };
     }
 
     var doc = data[clientNs + '$' + lowlaID];
@@ -1414,22 +1428,24 @@
 
   function scanDocuments(docFn, doneFn) {
     this.transact(
-      function(tx) {
+      function (tx) {
         tx.scan(docFn, doneFn);
       },
-      function() {},
-      function() {}
+      function () {
+      },
+      function () {
+      }
     );
   }
 
   function remove(clientNs, lowlaID, doneFn) {
-    delete data[clientNs + "$" + lowlaID];
+    delete data[clientNs + '$' + lowlaID];
     doneFn();
   }
-  
+
   function countAll(clientNs, doneFn) {
     var count = 0;
-    LowlaDB.utils.keys(data).forEach(function(key) {
+    LowlaDB.utils.keys(data).forEach(function (key) {
       if (data[key].clientNs === clientNs) {
         ++count;
       }
@@ -1438,7 +1454,9 @@
   }
 
   function transact(callback, doneCallback, errCallback) {
-    errCallback = errCallback || function(){};
+    errCallback = errCallback || function () {
+    };
+
     var txWrapper = {
       errCb: errCallback,
       load: loadInTx,
@@ -1448,7 +1466,7 @@
     };
 
     try {
-      setTimeout(function() {
+      setTimeout(function () {
         doneCallback();
       }, 0);
 
@@ -1460,7 +1478,7 @@
     /////////////////
 
     function loadInTx(clientNs, lowlaID, loadCallback) {
-      loadDocument(clientNs, lowlaID, function(doc) {
+      loadDocument(clientNs, lowlaID, function (doc) {
         if (loadCallback) {
           loadCallback(doc, txWrapper);
         }
@@ -1468,7 +1486,7 @@
     }
 
     function saveInTx(clientNs, lowlaID, doc, saveCallback) {
-      updateDocument(clientNs, lowlaID, doc, function(doc) {
+      updateDocument(clientNs, lowlaID, doc, function (doc) {
         if (saveCallback) {
           saveCallback(doc, txWrapper);
         }
@@ -1483,7 +1501,7 @@
         };
       }
 
-      LowlaDB.utils.keys(data).forEach(function(key) {
+      LowlaDB.utils.keys(data).forEach(function (key) {
         scanCallback(_copyObj(data[key]), txWrapper);
       });
 
@@ -1491,21 +1509,22 @@
     }
 
     function removeInTx(clientNs, lowlaID, removeDoneCallback) {
-      remove(clientNs, lowlaID, function() {
+      remove(clientNs, lowlaID, function () {
         if (removeDoneCallback) {
           removeDoneCallback(txWrapper);
         }
       });
     }
   }
-})(LowlaDB);;/**
+})(LowlaDB);
+;/**
  * Created by michael on 10/10/14.
  */
 
-(function(LowlaDB) {
+(function (LowlaDB) {
   var keys;
 
-  var SyncCoordinator = function(lowla, baseUrl) {
+  var SyncCoordinator = function (lowla, baseUrl) {
     this.lowla = lowla;
     this.datastore = lowla.datastore;
 
@@ -1525,11 +1544,11 @@
     };
   };
 
-  SyncCoordinator.prototype.processPull = function(payload) {
+  SyncCoordinator.prototype.processPull = function (payload) {
     return SyncCoordinator._processPullPayload(this.lowla, this.datastore, payload);
   };
 
-  SyncCoordinator._processPullPayload = function(lowla, datastore, payload) {
+  SyncCoordinator._processPullPayload = function (lowla, datastore, payload) {
     var i = 0;
     var promises = [];
     var collections = {};
@@ -1543,15 +1562,15 @@
         promises.push(updateIfUnchanged(payload[i].clientNs, payload[i].id));
       }
       else {
-        SyncCoordinator.validateSpecialTypes(payload[i+1]);
+        SyncCoordinator.validateSpecialTypes(payload[i + 1]);
         promises.push(updateIfUnchanged(payload[i].clientNs, payload[i].id, payload[++i]));
       }
       i++;
     }
 
     return Promise.all(promises)
-      .then(function() {
-        LowlaDB.utils.keys(collections).forEach(function(collName) {
+      .then(function () {
+        LowlaDB.utils.keys(collections).forEach(function (collName) {
           var dbName = collName.substring(0, collName.indexOf('.'));
           collName = collName.substring(dbName.length + 1);
           LowlaDB.Cursor.notifyLive(lowla.collection(dbName, collName));
@@ -1561,11 +1580,11 @@
       });
 
     function updateIfUnchanged(clientNs, lowlaId, doc) {
-      return new Promise(function(resolve, reject) {
+      return new Promise(function (resolve, reject) {
         datastore.transact(txFn, resolve, reject);
 
         function txFn(tx) {
-          tx.load("", "$metadata", checkMeta);
+          tx.load('', '$metadata', checkMeta);
         }
 
         function checkMeta(metaDoc, tx) {
@@ -1587,15 +1606,15 @@
     }
   };
 
-  SyncCoordinator._updateSequence = function(lowla, sequence) {
-    return new Promise(function(resolve, reject) {
-      lowla.datastore.loadDocument("", "$metadata", {
-        document: function(doc) {
+  SyncCoordinator._updateSequence = function (lowla, sequence) {
+    return new Promise(function (resolve, reject) {
+      lowla.datastore.loadDocument('', '$metadata', {
+        document: function (doc) {
           if (!doc) {
             doc = {};
           }
           doc.sequence = sequence;
-          lowla.datastore.updateDocument("", "$metadata", doc, function() {
+          lowla.datastore.updateDocument('', '$metadata', doc, function () {
             resolve(sequence);
           }, reject);
         }
@@ -1603,13 +1622,13 @@
     });
   };
 
-  SyncCoordinator.prototype.processChanges = function(payload) {
+  SyncCoordinator.prototype.processChanges = function (payload) {
     var syncCoord = this;
     var lowla = this.lowla;
     var ids = [];
     var seqs = [];
     var updateSeq = true;
-    payload.atoms.map(function(atom) {
+    payload.atoms.map(function (atom) {
       ids.push(atom.id);
       seqs.push(atom.sequence);
     });
@@ -1622,10 +1641,10 @@
       var payloadIds = ids.slice(0, Math.min(10, ids.length));
 
       return Promise.resolve()
-        .then(function() {
-          return LowlaDB.utils.getJSON(syncCoord.urls.pull, { ids: payloadIds });
+        .then(function () {
+          return LowlaDB.utils.getJSON(syncCoord.urls.pull, {ids: payloadIds});
         })
-        .then(function(pullPayload) {
+        .then(function (pullPayload) {
           if (!pullPayload.length) {
             ids.splice(0, payloadIds.length);
             seqs.splice(0, payloadIds.length);
@@ -1651,12 +1670,12 @@
 
           return syncCoord.processPull(pullPayload);
         })
-        .then(function() {
+        .then(function () {
           if (updateSeq && seqs.length) {
             return SyncCoordinator._updateSequence(lowla, seqs[0]);
           }
         })
-        .then(function() {
+        .then(function () {
           if (ids.length) {
             return pullSomeDocuments(ids, offset);
           }
@@ -1665,44 +1684,44 @@
 
     lowla.emit('pullBegin');
     return Promise.resolve()
-      .then(function() {
+      .then(function () {
         return pullSomeDocuments(ids, 0);
       })
-      .then(function() {
+      .then(function () {
         if (updateSeq) {
           return SyncCoordinator._updateSequence(lowla, payload.sequence);
         }
       })
-      .then(function(arg) {
+      .then(function (arg) {
         lowla.emit('pullEnd');
         return arg;
-      }, function(err) {
+      }, function (err) {
         lowla.emit('pullEnd');
         throw err;
       });
   };
 
-  SyncCoordinator.prototype.fetchChanges = function() {
+  SyncCoordinator.prototype.fetchChanges = function () {
     var syncCoord = this;
-    return new Promise(function(resolve, reject) {
-      syncCoord.datastore.loadDocument("", "$metadata", {
+    return new Promise(function (resolve, reject) {
+      syncCoord.datastore.loadDocument('', '$metadata', {
         document: resolve,
         error: reject
       });
     })
-      .then(function(meta) {
+      .then(function (meta) {
         var sequence = (meta && meta.sequence) ? meta.sequence : 0;
         return LowlaDB.utils.getJSON(syncCoord.urls.changes + '?seq=' + sequence);
       })
-      .then(function(payload) {
+      .then(function (payload) {
         return syncCoord.processChanges(payload);
       })
-      .catch(function(err) {
+      .catch(function (err) {
         console.log('Unable to fetch changes: ' + err);
       });
   };
 
-  SyncCoordinator.validateSpecialTypes = function(obj) {
+  SyncCoordinator.validateSpecialTypes = function (obj) {
     for (var key in obj) {
       if (obj.hasOwnProperty(key)) {
         var val = obj[key];
@@ -1755,20 +1774,20 @@
     return obj;
   };
 
-  SyncCoordinator.prototype.collectPushData = function(alreadySeen) {
+  SyncCoordinator.prototype.collectPushData = function (alreadySeen) {
     var datastore = this.datastore;
     alreadySeen = alreadySeen || {};
-    return this.lowla._metadata().then(function(metaDoc) {
+    return this.lowla._metadata().then(function (metaDoc) {
       if (!metaDoc || !metaDoc.changes) {
         return null;
       }
 
       return new Promise(function (resolve, reject) {
         var docs = [];
-        datastore.scanDocuments(function(doc) {
+        datastore.scanDocuments(function (doc) {
           var lowlaId = doc.lowlaId;
           doc = doc.document;
-          
+
           if (docs.length >= 10 || alreadySeen.hasOwnProperty(lowlaId)) {
             return;
           }
@@ -1781,7 +1800,7 @@
             var unsetOps = {};
 
             for (var key in doc) {
-              if (!doc.hasOwnProperty(key) || key === "_id") {
+              if (!doc.hasOwnProperty(key) || key === '_id') {
                 continue;
               }
 
@@ -1791,7 +1810,7 @@
             }
 
             for (var oldKey in oldDoc) {
-              if (!oldDoc.hasOwnProperty(oldKey) || key === "_id") {
+              if (!oldDoc.hasOwnProperty(oldKey) || key === '_id') {
                 continue;
               }
 
@@ -1802,7 +1821,7 @@
 
             var ops = null;
             if (0 !== keys(setOps).length) {
-              ops = { $set: setOps };
+              ops = {$set: setOps};
             }
             if (0 !== keys(unsetOps).length) {
               (ops || (ops = {})).$unset = unsetOps;
@@ -1818,36 +1837,36 @@
               });
             }
           }
-        }, function() {
+        }, function () {
           if (docs.length >= 10) {
             resolve(docs);
             return;
           }
 
-          LowlaDB.utils.keys(metaDoc.changes).forEach(function(lowlaID) {
+          LowlaDB.utils.keys(metaDoc.changes).forEach(function (lowlaID) {
             if (!alreadySeen.hasOwnProperty(lowlaID)) {
-              docs.push({ _lowla: { id: lowlaID, version: metaDoc.changes[lowlaID]._version, deleted: true } });
+              docs.push({_lowla: {id: lowlaID, version: metaDoc.changes[lowlaID]._version, deleted: true}});
             }
           });
 
           resolve(docs);
         }, reject);
       })
-        .then(function(docs) {
+        .then(function (docs) {
           if (!docs || 0 === docs.length) {
             return null;
           }
 
-          return { documents: docs };
+          return {documents: docs};
         });
     });
   };
 
-  SyncCoordinator.prototype.processPushResponse = function(payload, savedDuringPush) {
+  SyncCoordinator.prototype.processPushResponse = function (payload, savedDuringPush) {
     var lowla = this.lowla;
     savedDuringPush = savedDuringPush || [];
-    var makeUpdateHandler = function(docId) {
-      return function() {
+    var makeUpdateHandler = function (docId) {
+      return function () {
         return docId;
       };
     };
@@ -1884,16 +1903,16 @@
     return Promise.all(promises);
   };
 
-  SyncCoordinator.prototype.clearPushData = function(ids) {
+  SyncCoordinator.prototype.clearPushData = function (ids) {
     var lowla = this.lowla;
     return lowla._metadata()
-      .then(function(metaData) {
+      .then(function (metaData) {
         if (!metaData || !metaData.changes) {
           return;
         }
 
         if (ids && ids.forEach) {
-          ids.forEach(function(id) {
+          ids.forEach(function (id) {
             delete metaData.changes[id];
           });
         }
@@ -1908,7 +1927,7 @@
       });
   };
 
-  SyncCoordinator.prototype.pushChanges = function() {
+  SyncCoordinator.prototype.pushChanges = function () {
     var syncCoord = this;
     var lowla = this.lowla;
     var alreadySeen = {};
@@ -1920,16 +1939,16 @@
       }
 
       return Promise.resolve()
-        .then(function() {
+        .then(function () {
           return LowlaDB.utils.getJSON(syncCoord.urls.push, pushPayload);
         })
-        .then(function(response) {
+        .then(function (response) {
           return syncCoord.processPushResponse(response, savedDuringPush);
         })
-        .then(function(updatedIDs) {
+        .then(function (updatedIDs) {
           return syncCoord.clearPushData(updatedIDs);
         })
-        .then(function() {
+        .then(function () {
           return syncCoord.collectPushData(alreadySeen);
         })
         .then(processPushData);
@@ -1940,7 +1959,7 @@
     }
 
     return this.collectPushData(alreadySeen)
-      .then(function(payload) {
+      .then(function (payload) {
         if (!payload) {
           return;
         }
@@ -1948,18 +1967,18 @@
         lowla.on('_saveHook', saveHook);
         lowla.emit('pushBegin');
         return processPushData(payload)
-          .then(function(arg) {
+          .then(function (arg) {
             lowla.off('_saveHook', saveHook);
             lowla.emit('pushEnd');
             return arg;
-          }, function(err) {
+          }, function (err) {
             lowla.off('_saveHook', saveHook);
             lowla.emit('pushEnd');
             throw err;
           });
 
       })
-      .catch(function(err) {
+      .catch(function (err) {
         console.log('Unable to push changes: ' + err);
       });
   };
@@ -1968,19 +1987,18 @@
 
   return LowlaDB;
 })(LowlaDB);
-
 ;/**
  * Created by michael on 10/10/14.
  */
 
-(function(LowlaDB) {
+(function (LowlaDB) {
   var utils = LowlaDB.utils || {};
 
   function createXHR() {
     var xhr;
     if (window.ActiveXObject) {
       try {
-        xhr = new ActiveXObject("Microsoft.XMLHTTP");
+        xhr = new ActiveXObject('Microsoft.XMLHTTP');
       }
       catch (e) {
         alert(e.message);
@@ -2044,7 +2062,7 @@
     return new Blob(byteArrays, {type: contentType});
   };
 
-  utils.keys = function(obj) {
+  utils.keys = function (obj) {
     if (!obj) {
       return [];
     }
@@ -2063,708 +2081,741 @@
     return answer;
   };
 
-  utils.isArray = function(obj) {
+  utils.isArray = function (obj) {
     return (obj instanceof Array);
   };
 
-  utils.debounce = function(func, wait, immediate) {
+  utils.debounce = function (func, wait, immediate) {
     var timeout;
-    return function() {
-      var context = this, args = arguments;
-      var later = function() {
+    return function () {
+      var context = this;
+      var args = arguments;
+      var later = function () {
         timeout = null;
-        if (!immediate) func.apply(context, args);
+        if (!immediate) {
+          func.apply(context, args);
+        }
       };
+
       var callNow = immediate && !timeout;
       clearTimeout(timeout);
       timeout = setTimeout(later, wait);
-      if (callNow) func.apply(context, args);
+      if (callNow) {
+        func.apply(context, args);
+      }
     };
   };
 
   LowlaDB.utils = utils;
   return LowlaDB;
-})(LowlaDB);;(function() {
-var define, requireModule, require, requirejs;
+})(LowlaDB);
+;(function () {
+  var define, requireModule, require, requirejs;
 
-(function() {
-  var registry = {}, seen = {};
+  (function () {
+    var registry = {}, seen = {};
 
-  define = function(name, deps, callback) {
-    registry[name] = { deps: deps, callback: callback };
-  };
+    define = function (name, deps, callback) {
+      registry[name] = {deps: deps, callback: callback};
+    };
 
-  requirejs = require = requireModule = function(name) {
-  requirejs._eak_seen = registry;
+    requirejs = require = requireModule = function (name) {
+      requirejs._eak_seen = registry;
 
-    if (seen[name]) { return seen[name]; }
-    seen[name] = {};
+      if (seen[name]) {
+        return seen[name];
+      }
+      seen[name] = {};
 
-    if (!registry[name]) {
-      throw new Error("Could not find module " + name);
-    }
+      if (!registry[name]) {
+        throw new Error("Could not find module " + name);
+      }
 
-    var mod = registry[name],
+      var mod = registry[name],
         deps = mod.deps,
         callback = mod.callback,
         reified = [],
         exports;
 
-    for (var i=0, l=deps.length; i<l; i++) {
-      if (deps[i] === 'exports') {
-        reified.push(exports = {});
-      } else {
-        reified.push(requireModule(resolve(deps[i])));
-      }
-    }
-
-    var value = callback.apply(this, reified);
-    return seen[name] = exports || value;
-
-    function resolve(child) {
-      if (child.charAt(0) !== '.') { return child; }
-      var parts = child.split("/");
-      var parentBase = name.split("/").slice(0, -1);
-
-      for (var i=0, l=parts.length; i<l; i++) {
-        var part = parts[i];
-
-        if (part === '..') { parentBase.pop(); }
-        else if (part === '.') { continue; }
-        else { parentBase.push(part); }
+      for (var i = 0, l = deps.length; i < l; i++) {
+        if (deps[i] === 'exports') {
+          reified.push(exports = {});
+        } else {
+          reified.push(requireModule(resolve(deps[i])));
+        }
       }
 
-      return parentBase.join("/");
-    }
-  };
-})();
+      var value = callback.apply(this, reified);
+      return seen[name] = exports || value;
 
-define("promise/all", 
-  ["./utils","exports"],
-  function(__dependency1__, __exports__) {
-    "use strict";
-    /* global toString */
+      function resolve(child) {
+        if (child.charAt(0) !== '.') {
+          return child;
+        }
+        var parts = child.split("/");
+        var parentBase = name.split("/").slice(0, -1);
 
-    var isArray = __dependency1__.isArray;
-    var isFunction = __dependency1__.isFunction;
+        for (var i = 0, l = parts.length; i < l; i++) {
+          var part = parts[i];
 
-    /**
-      Returns a promise that is fulfilled when all the given promises have been
-      fulfilled, or rejected if any of them become rejected. The return promise
-      is fulfilled with an array that gives all the values in the order they were
-      passed in the `promises` array argument.
+          if (part === '..') {
+            parentBase.pop();
+          }
+          else if (part === '.') {
+            continue;
+          }
+          else {
+            parentBase.push(part);
+          }
+        }
 
-      Example:
+        return parentBase.join("/");
+      }
+    };
+  })();
 
-      ```javascript
-      var promise1 = RSVP.resolve(1);
-      var promise2 = RSVP.resolve(2);
-      var promise3 = RSVP.resolve(3);
-      var promises = [ promise1, promise2, promise3 ];
+  define("promise/all",
+    ["./utils", "exports"],
+    function (__dependency1__, __exports__) {
+      "use strict";
+      /* global toString */
 
-      RSVP.all(promises).then(function(array){
+      var isArray = __dependency1__.isArray;
+      var isFunction = __dependency1__.isFunction;
+
+      /**
+       Returns a promise that is fulfilled when all the given promises have been
+       fulfilled, or rejected if any of them become rejected. The return promise
+       is fulfilled with an array that gives all the values in the order they were
+       passed in the `promises` array argument.
+
+       Example:
+
+       ```javascript
+       var promise1 = RSVP.resolve(1);
+       var promise2 = RSVP.resolve(2);
+       var promise3 = RSVP.resolve(3);
+       var promises = [ promise1, promise2, promise3 ];
+
+       RSVP.all(promises).then(function(array){
         // The array here would be [ 1, 2, 3 ];
       });
-      ```
+       ```
 
-      If any of the `promises` given to `RSVP.all` are rejected, the first promise
-      that is rejected will be given as an argument to the returned promises's
-      rejection handler. For example:
+       If any of the `promises` given to `RSVP.all` are rejected, the first promise
+       that is rejected will be given as an argument to the returned promises's
+       rejection handler. For example:
 
-      Example:
+       Example:
 
-      ```javascript
-      var promise1 = RSVP.resolve(1);
-      var promise2 = RSVP.reject(new Error("2"));
-      var promise3 = RSVP.reject(new Error("3"));
-      var promises = [ promise1, promise2, promise3 ];
+       ```javascript
+       var promise1 = RSVP.resolve(1);
+       var promise2 = RSVP.reject(new Error("2"));
+       var promise3 = RSVP.reject(new Error("3"));
+       var promises = [ promise1, promise2, promise3 ];
 
-      RSVP.all(promises).then(function(array){
+       RSVP.all(promises).then(function(array){
         // Code here never runs because there are rejected promises!
       }, function(error) {
         // error.message === "2"
       });
-      ```
+       ```
 
-      @method all
-      @for RSVP
-      @param {Array} promises
-      @param {String} label
-      @return {Promise} promise that is fulfilled when all `promises` have been
-      fulfilled, or rejected if any of them become rejected.
-    */
-    function all(promises) {
-      /*jshint validthis:true */
-      var Promise = this;
+       @method all
+       @for RSVP
+       @param {Array} promises
+       @param {String} label
+       @return {Promise} promise that is fulfilled when all `promises` have been
+       fulfilled, or rejected if any of them become rejected.
+       */
+      function all(promises) {
+        /*jshint validthis:true */
+        var Promise = this;
 
-      if (!isArray(promises)) {
-        throw new TypeError('You must pass an array to all.');
-      }
-
-      return new Promise(function(resolve, reject) {
-        var results = [], remaining = promises.length,
-        promise;
-
-        if (remaining === 0) {
-          resolve([]);
+        if (!isArray(promises)) {
+          throw new TypeError('You must pass an array to all.');
         }
 
-        function resolver(index) {
-          return function(value) {
-            resolveAll(index, value);
-          };
-        }
+        return new Promise(function (resolve, reject) {
+          var results = [], remaining = promises.length,
+            promise;
 
-        function resolveAll(index, value) {
-          results[index] = value;
-          if (--remaining === 0) {
-            resolve(results);
+          if (remaining === 0) {
+            resolve([]);
           }
-        }
 
-        for (var i = 0; i < promises.length; i++) {
-          promise = promises[i];
-
-          if (promise && isFunction(promise.then)) {
-            promise.then(resolver(i), reject);
-          } else {
-            resolveAll(i, promise);
+          function resolver(index) {
+            return function (value) {
+              resolveAll(index, value);
+            };
           }
+
+          function resolveAll(index, value) {
+            results[index] = value;
+            if (--remaining === 0) {
+              resolve(results);
+            }
+          }
+
+          for (var i = 0; i < promises.length; i++) {
+            promise = promises[i];
+
+            if (promise && isFunction(promise.then)) {
+              promise.then(resolver(i), reject);
+            } else {
+              resolveAll(i, promise);
+            }
+          }
+        });
+      }
+
+      __exports__.all = all;
+    });
+  define("promise/asap",
+    ["exports"],
+    function (__exports__) {
+      "use strict";
+      var browserGlobal = (typeof window !== 'undefined') ? window : {};
+      var BrowserMutationObserver = browserGlobal.MutationObserver || browserGlobal.WebKitMutationObserver;
+      var local = (typeof global !== 'undefined') ? global : (this === undefined ? window : this);
+
+      // node
+      function useNextTick() {
+        return function () {
+          process.nextTick(flush);
+        };
+      }
+
+      function useMutationObserver() {
+        var iterations = 0;
+        var observer = new BrowserMutationObserver(flush);
+        var node = document.createTextNode('');
+        observer.observe(node, {characterData: true});
+
+        return function () {
+          node.data = (iterations = ++iterations % 2);
+        };
+      }
+
+      function useSetTimeout() {
+        return function () {
+          local.setTimeout(flush, 1);
+        };
+      }
+
+      var queue = [];
+
+      function flush() {
+        for (var i = 0; i < queue.length; i++) {
+          var tuple = queue[i];
+          var callback = tuple[0], arg = tuple[1];
+          callback(arg);
         }
-      });
-    }
-
-    __exports__.all = all;
-  });
-define("promise/asap", 
-  ["exports"],
-  function(__exports__) {
-    "use strict";
-    var browserGlobal = (typeof window !== 'undefined') ? window : {};
-    var BrowserMutationObserver = browserGlobal.MutationObserver || browserGlobal.WebKitMutationObserver;
-    var local = (typeof global !== 'undefined') ? global : (this === undefined? window:this);
-
-    // node
-    function useNextTick() {
-      return function() {
-        process.nextTick(flush);
-      };
-    }
-
-    function useMutationObserver() {
-      var iterations = 0;
-      var observer = new BrowserMutationObserver(flush);
-      var node = document.createTextNode('');
-      observer.observe(node, { characterData: true });
-
-      return function() {
-        node.data = (iterations = ++iterations % 2);
-      };
-    }
-
-    function useSetTimeout() {
-      return function() {
-        local.setTimeout(flush, 1);
-      };
-    }
-
-    var queue = [];
-    function flush() {
-      for (var i = 0; i < queue.length; i++) {
-        var tuple = queue[i];
-        var callback = tuple[0], arg = tuple[1];
-        callback(arg);
+        queue = [];
       }
-      queue = [];
-    }
 
-    var scheduleFlush;
+      var scheduleFlush;
 
-    // Decide what async method to use to triggering processing of queued callbacks:
-    if (typeof process !== 'undefined' && {}.toString.call(process) === '[object process]') {
-      scheduleFlush = useNextTick();
-    } else if (BrowserMutationObserver) {
-      scheduleFlush = useMutationObserver();
-    } else {
-      scheduleFlush = useSetTimeout();
-    }
-
-    function asap(callback, arg) {
-      var length = queue.push([callback, arg]);
-      if (length === 1) {
-        // If length is 1, that means that we need to schedule an async flush.
-        // If additional callbacks are queued before the queue is flushed, they
-        // will be processed by this flush that we are scheduling.
-        scheduleFlush();
-      }
-    }
-
-    __exports__.asap = asap;
-  });
-define("promise/config", 
-  ["exports"],
-  function(__exports__) {
-    "use strict";
-    var config = {
-      instrument: false
-    };
-
-    function configure(name, value) {
-      if (arguments.length === 2) {
-        config[name] = value;
+      // Decide what async method to use to triggering processing of queued callbacks:
+      if (typeof process !== 'undefined' && {}.toString.call(process) === '[object process]') {
+        scheduleFlush = useNextTick();
+      } else if (BrowserMutationObserver) {
+        scheduleFlush = useMutationObserver();
       } else {
-        return config[name];
-      }
-    }
-
-    __exports__.config = config;
-    __exports__.configure = configure;
-  });
-define("promise/polyfill", 
-  ["./promise","./utils","exports"],
-  function(__dependency1__, __dependency2__, __exports__) {
-    "use strict";
-    /*global self*/
-    var RSVPPromise = __dependency1__.Promise;
-    var isFunction = __dependency2__.isFunction;
-
-    function polyfill() {
-      var local;
-
-      if (typeof global !== 'undefined') {
-        local = global;
-      } else if (typeof window !== 'undefined' && window.document) {
-        local = window;
-      } else {
-        local = self;
+        scheduleFlush = useSetTimeout();
       }
 
-      var es6PromiseSupport = 
-        "Promise" in local &&
-        // Some of these methods are missing from
-        // Firefox/Chrome experimental implementations
-        "resolve" in local.Promise &&
-        "reject" in local.Promise &&
-        "all" in local.Promise &&
-        "race" in local.Promise &&
-        // Older version of the spec had a resolver object
-        // as the arg rather than a function
-        (function() {
-          var resolve;
-          new local.Promise(function(r) { resolve = r; });
-          return isFunction(resolve);
-        }());
-
-      if (!es6PromiseSupport) {
-        local.Promise = RSVPPromise;
-      }
-    }
-
-    __exports__.polyfill = polyfill;
-  });
-define("promise/promise", 
-  ["./config","./utils","./all","./race","./resolve","./reject","./asap","exports"],
-  function(__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __dependency6__, __dependency7__, __exports__) {
-    "use strict";
-    var config = __dependency1__.config;
-    var configure = __dependency1__.configure;
-    var objectOrFunction = __dependency2__.objectOrFunction;
-    var isFunction = __dependency2__.isFunction;
-    var now = __dependency2__.now;
-    var all = __dependency3__.all;
-    var race = __dependency4__.race;
-    var staticResolve = __dependency5__.resolve;
-    var staticReject = __dependency6__.reject;
-    var asap = __dependency7__.asap;
-
-    var counter = 0;
-
-    config.async = asap; // default async is asap;
-
-    function Promise(resolver) {
-      if (!isFunction(resolver)) {
-        throw new TypeError('You must pass a resolver function as the first argument to the promise constructor');
+      function asap(callback, arg) {
+        var length = queue.push([callback, arg]);
+        if (length === 1) {
+          // If length is 1, that means that we need to schedule an async flush.
+          // If additional callbacks are queued before the queue is flushed, they
+          // will be processed by this flush that we are scheduling.
+          scheduleFlush();
+        }
       }
 
-      if (!(this instanceof Promise)) {
-        throw new TypeError("Failed to construct 'Promise': Please use the 'new' operator, this object constructor cannot be called as a function.");
+      __exports__.asap = asap;
+    });
+  define("promise/config",
+    ["exports"],
+    function (__exports__) {
+      "use strict";
+      var config = {
+        instrument: false
+      };
+
+      function configure(name, value) {
+        if (arguments.length === 2) {
+          config[name] = value;
+        } else {
+          return config[name];
+        }
       }
 
-      this._subscribers = [];
+      __exports__.config = config;
+      __exports__.configure = configure;
+    });
+  define("promise/polyfill",
+    ["./promise", "./utils", "exports"],
+    function (__dependency1__, __dependency2__, __exports__) {
+      "use strict";
+      /*global self*/
+      var RSVPPromise = __dependency1__.Promise;
+      var isFunction = __dependency2__.isFunction;
 
-      invokeResolver(resolver, this);
-    }
+      function polyfill() {
+        var local;
 
-    function invokeResolver(resolver, promise) {
-      function resolvePromise(value) {
-        resolve(promise, value);
+        if (typeof global !== 'undefined') {
+          local = global;
+        } else if (typeof window !== 'undefined' && window.document) {
+          local = window;
+        } else {
+          local = self;
+        }
+
+        var es6PromiseSupport =
+          "Promise" in local &&
+            // Some of these methods are missing from
+            // Firefox/Chrome experimental implementations
+          "resolve" in local.Promise &&
+          "reject" in local.Promise &&
+          "all" in local.Promise &&
+          "race" in local.Promise &&
+            // Older version of the spec had a resolver object
+            // as the arg rather than a function
+          (function () {
+            var resolve;
+            new local.Promise(function (r) {
+              resolve = r;
+            });
+            return isFunction(resolve);
+          }());
+
+        if (!es6PromiseSupport) {
+          local.Promise = RSVPPromise;
+        }
       }
 
-      function rejectPromise(reason) {
-        reject(promise, reason);
+      __exports__.polyfill = polyfill;
+    });
+  define("promise/promise",
+    ["./config", "./utils", "./all", "./race", "./resolve", "./reject", "./asap", "exports"],
+    function (__dependency1__, __dependency2__, __dependency3__, __dependency4__, __dependency5__, __dependency6__, __dependency7__, __exports__) {
+      "use strict";
+      var config = __dependency1__.config;
+      var configure = __dependency1__.configure;
+      var objectOrFunction = __dependency2__.objectOrFunction;
+      var isFunction = __dependency2__.isFunction;
+      var now = __dependency2__.now;
+      var all = __dependency3__.all;
+      var race = __dependency4__.race;
+      var staticResolve = __dependency5__.resolve;
+      var staticReject = __dependency6__.reject;
+      var asap = __dependency7__.asap;
+
+      var counter = 0;
+
+      config.async = asap; // default async is asap;
+
+      function Promise(resolver) {
+        if (!isFunction(resolver)) {
+          throw new TypeError('You must pass a resolver function as the first argument to the promise constructor');
+        }
+
+        if (!(this instanceof Promise)) {
+          throw new TypeError("Failed to construct 'Promise': Please use the 'new' operator, this object constructor cannot be called as a function.");
+        }
+
+        this._subscribers = [];
+
+        invokeResolver(resolver, this);
       }
 
-      try {
-        resolver(resolvePromise, rejectPromise);
-      } catch(e) {
-        rejectPromise(e);
-      }
-    }
+      function invokeResolver(resolver, promise) {
+        function resolvePromise(value) {
+          resolve(promise, value);
+        }
 
-    function invokeCallback(settled, promise, callback, detail) {
-      var hasCallback = isFunction(callback),
+        function rejectPromise(reason) {
+          reject(promise, reason);
+        }
+
+        try {
+          resolver(resolvePromise, rejectPromise);
+        } catch (e) {
+          rejectPromise(e);
+        }
+      }
+
+      function invokeCallback(settled, promise, callback, detail) {
+        var hasCallback = isFunction(callback),
           value, error, succeeded, failed;
 
-      if (hasCallback) {
-        try {
-          value = callback(detail);
-          succeeded = true;
-        } catch(e) {
-          failed = true;
-          error = e;
-        }
-      } else {
-        value = detail;
-        succeeded = true;
-      }
-
-      if (handleThenable(promise, value)) {
-        return;
-      } else if (hasCallback && succeeded) {
-        resolve(promise, value);
-      } else if (failed) {
-        reject(promise, error);
-      } else if (settled === FULFILLED) {
-        resolve(promise, value);
-      } else if (settled === REJECTED) {
-        reject(promise, value);
-      }
-    }
-
-    var PENDING   = void 0;
-    var SEALED    = 0;
-    var FULFILLED = 1;
-    var REJECTED  = 2;
-
-    function subscribe(parent, child, onFulfillment, onRejection) {
-      var subscribers = parent._subscribers;
-      var length = subscribers.length;
-
-      subscribers[length] = child;
-      subscribers[length + FULFILLED] = onFulfillment;
-      subscribers[length + REJECTED]  = onRejection;
-    }
-
-    function publish(promise, settled) {
-      var child, callback, subscribers = promise._subscribers, detail = promise._detail;
-
-      for (var i = 0; i < subscribers.length; i += 3) {
-        child = subscribers[i];
-        callback = subscribers[i + settled];
-
-        invokeCallback(settled, child, callback, detail);
-      }
-
-      promise._subscribers = null;
-    }
-
-    Promise.prototype = {
-      constructor: Promise,
-
-      _state: undefined,
-      _detail: undefined,
-      _subscribers: undefined,
-
-      then: function(onFulfillment, onRejection) {
-        var promise = this;
-
-        var thenPromise = new this.constructor(function() {});
-
-        if (this._state) {
-          var callbacks = arguments;
-          config.async(function invokePromiseCallback() {
-            invokeCallback(promise._state, thenPromise, callbacks[promise._state - 1], promise._detail);
-          });
+        if (hasCallback) {
+          try {
+            value = callback(detail);
+            succeeded = true;
+          } catch (e) {
+            failed = true;
+            error = e;
+          }
         } else {
-          subscribe(this, thenPromise, onFulfillment, onRejection);
+          value = detail;
+          succeeded = true;
         }
 
-        return thenPromise;
-      },
-
-      'catch': function(onRejection) {
-        return this.then(null, onRejection);
+        if (handleThenable(promise, value)) {
+          return;
+        } else if (hasCallback && succeeded) {
+          resolve(promise, value);
+        } else if (failed) {
+          reject(promise, error);
+        } else if (settled === FULFILLED) {
+          resolve(promise, value);
+        } else if (settled === REJECTED) {
+          reject(promise, value);
+        }
       }
-    };
 
-    Promise.all = all;
-    Promise.race = race;
-    Promise.resolve = staticResolve;
-    Promise.reject = staticReject;
+      var PENDING = void 0;
+      var SEALED = 0;
+      var FULFILLED = 1;
+      var REJECTED = 2;
 
-    function handleThenable(promise, value) {
-      var then = null,
-      resolved;
+      function subscribe(parent, child, onFulfillment, onRejection) {
+        var subscribers = parent._subscribers;
+        var length = subscribers.length;
 
-      try {
-        if (promise === value) {
-          throw new TypeError("A promises callback cannot return that same promise.");
+        subscribers[length] = child;
+        subscribers[length + FULFILLED] = onFulfillment;
+        subscribers[length + REJECTED] = onRejection;
+      }
+
+      function publish(promise, settled) {
+        var child, callback, subscribers = promise._subscribers, detail = promise._detail;
+
+        for (var i = 0; i < subscribers.length; i += 3) {
+          child = subscribers[i];
+          callback = subscribers[i + settled];
+
+          invokeCallback(settled, child, callback, detail);
         }
 
-        if (objectOrFunction(value)) {
-          then = value.then;
+        promise._subscribers = null;
+      }
 
-          if (isFunction(then)) {
-            then.call(value, function(val) {
-              if (resolved) { return true; }
-              resolved = true;
+      Promise.prototype = {
+        constructor: Promise,
 
-              if (value !== val) {
-                resolve(promise, val);
-              } else {
-                fulfill(promise, val);
-              }
-            }, function(val) {
-              if (resolved) { return true; }
-              resolved = true;
+        _state: undefined,
+        _detail: undefined,
+        _subscribers: undefined,
 
-              reject(promise, val);
+        then: function (onFulfillment, onRejection) {
+          var promise = this;
+
+          var thenPromise = new this.constructor(function () {
+          });
+
+          if (this._state) {
+            var callbacks = arguments;
+            config.async(function invokePromiseCallback() {
+              invokeCallback(promise._state, thenPromise, callbacks[promise._state - 1], promise._detail);
             });
+          } else {
+            subscribe(this, thenPromise, onFulfillment, onRejection);
+          }
 
+          return thenPromise;
+        },
+
+        'catch': function (onRejection) {
+          return this.then(null, onRejection);
+        }
+      };
+
+      Promise.all = all;
+      Promise.race = race;
+      Promise.resolve = staticResolve;
+      Promise.reject = staticReject;
+
+      function handleThenable(promise, value) {
+        var then = null,
+          resolved;
+
+        try {
+          if (promise === value) {
+            throw new TypeError("A promises callback cannot return that same promise.");
+          }
+
+          if (objectOrFunction(value)) {
+            then = value.then;
+
+            if (isFunction(then)) {
+              then.call(value, function (val) {
+                if (resolved) {
+                  return true;
+                }
+                resolved = true;
+
+                if (value !== val) {
+                  resolve(promise, val);
+                } else {
+                  fulfill(promise, val);
+                }
+              }, function (val) {
+                if (resolved) {
+                  return true;
+                }
+                resolved = true;
+
+                reject(promise, val);
+              });
+
+              return true;
+            }
+          }
+        } catch (error) {
+          if (resolved) {
             return true;
           }
+          reject(promise, error);
+          return true;
         }
-      } catch (error) {
-        if (resolved) { return true; }
-        reject(promise, error);
-        return true;
+
+        return false;
       }
 
-      return false;
-    }
-
-    function resolve(promise, value) {
-      if (promise === value) {
-        fulfill(promise, value);
-      } else if (!handleThenable(promise, value)) {
-        fulfill(promise, value);
+      function resolve(promise, value) {
+        if (promise === value) {
+          fulfill(promise, value);
+        } else if (!handleThenable(promise, value)) {
+          fulfill(promise, value);
+        }
       }
-    }
 
-    function fulfill(promise, value) {
-      if (promise._state !== PENDING) { return; }
-      promise._state = SEALED;
-      promise._detail = value;
+      function fulfill(promise, value) {
+        if (promise._state !== PENDING) {
+          return;
+        }
+        promise._state = SEALED;
+        promise._detail = value;
 
-      config.async(publishFulfillment, promise);
-    }
+        config.async(publishFulfillment, promise);
+      }
 
-    function reject(promise, reason) {
-      if (promise._state !== PENDING) { return; }
-      promise._state = SEALED;
-      promise._detail = reason;
+      function reject(promise, reason) {
+        if (promise._state !== PENDING) {
+          return;
+        }
+        promise._state = SEALED;
+        promise._detail = reason;
 
-      config.async(publishRejection, promise);
-    }
+        config.async(publishRejection, promise);
+      }
 
-    function publishFulfillment(promise) {
-      publish(promise, promise._state = FULFILLED);
-    }
+      function publishFulfillment(promise) {
+        publish(promise, promise._state = FULFILLED);
+      }
 
-    function publishRejection(promise) {
-      publish(promise, promise._state = REJECTED);
-    }
+      function publishRejection(promise) {
+        publish(promise, promise._state = REJECTED);
+      }
 
-    __exports__.Promise = Promise;
-  });
-define("promise/race", 
-  ["./utils","exports"],
-  function(__dependency1__, __exports__) {
-    "use strict";
-    /* global toString */
-    var isArray = __dependency1__.isArray;
+      __exports__.Promise = Promise;
+    });
+  define("promise/race",
+    ["./utils", "exports"],
+    function (__dependency1__, __exports__) {
+      "use strict";
+      /* global toString */
+      var isArray = __dependency1__.isArray;
 
-    /**
-      `RSVP.race` allows you to watch a series of promises and act as soon as the
-      first promise given to the `promises` argument fulfills or rejects.
+      /**
+       `RSVP.race` allows you to watch a series of promises and act as soon as the
+       first promise given to the `promises` argument fulfills or rejects.
 
-      Example:
+       Example:
 
-      ```javascript
-      var promise1 = new RSVP.Promise(function(resolve, reject){
+       ```javascript
+       var promise1 = new RSVP.Promise(function(resolve, reject){
         setTimeout(function(){
           resolve("promise 1");
         }, 200);
       });
 
-      var promise2 = new RSVP.Promise(function(resolve, reject){
+       var promise2 = new RSVP.Promise(function(resolve, reject){
         setTimeout(function(){
           resolve("promise 2");
         }, 100);
       });
 
-      RSVP.race([promise1, promise2]).then(function(result){
+       RSVP.race([promise1, promise2]).then(function(result){
         // result === "promise 2" because it was resolved before promise1
         // was resolved.
       });
-      ```
+       ```
 
-      `RSVP.race` is deterministic in that only the state of the first completed
-      promise matters. For example, even if other promises given to the `promises`
-      array argument are resolved, but the first completed promise has become
-      rejected before the other promises became fulfilled, the returned promise
-      will become rejected:
+       `RSVP.race` is deterministic in that only the state of the first completed
+       promise matters. For example, even if other promises given to the `promises`
+       array argument are resolved, but the first completed promise has become
+       rejected before the other promises became fulfilled, the returned promise
+       will become rejected:
 
-      ```javascript
-      var promise1 = new RSVP.Promise(function(resolve, reject){
+       ```javascript
+       var promise1 = new RSVP.Promise(function(resolve, reject){
         setTimeout(function(){
           resolve("promise 1");
         }, 200);
       });
 
-      var promise2 = new RSVP.Promise(function(resolve, reject){
+       var promise2 = new RSVP.Promise(function(resolve, reject){
         setTimeout(function(){
           reject(new Error("promise 2"));
         }, 100);
       });
 
-      RSVP.race([promise1, promise2]).then(function(result){
+       RSVP.race([promise1, promise2]).then(function(result){
         // Code here never runs because there are rejected promises!
       }, function(reason){
         // reason.message === "promise2" because promise 2 became rejected before
         // promise 1 became fulfilled
       });
-      ```
+       ```
 
-      @method race
-      @for RSVP
-      @param {Array} promises array of promises to observe
-      @param {String} label optional string for describing the promise returned.
-      Useful for tooling.
-      @return {Promise} a promise that becomes fulfilled with the value the first
-      completed promises is resolved with if the first completed promise was
-      fulfilled, or rejected with the reason that the first completed promise
-      was rejected with.
-    */
-    function race(promises) {
-      /*jshint validthis:true */
-      var Promise = this;
+       @method race
+       @for RSVP
+       @param {Array} promises array of promises to observe
+       @param {String} label optional string for describing the promise returned.
+       Useful for tooling.
+       @return {Promise} a promise that becomes fulfilled with the value the first
+       completed promises is resolved with if the first completed promise was
+       fulfilled, or rejected with the reason that the first completed promise
+       was rejected with.
+       */
+      function race(promises) {
+        /*jshint validthis:true */
+        var Promise = this;
 
-      if (!isArray(promises)) {
-        throw new TypeError('You must pass an array to race.');
-      }
-      return new Promise(function(resolve, reject) {
-        var results = [], promise;
-
-        for (var i = 0; i < promises.length; i++) {
-          promise = promises[i];
-
-          if (promise && typeof promise.then === 'function') {
-            promise.then(resolve, reject);
-          } else {
-            resolve(promise);
-          }
+        if (!isArray(promises)) {
+          throw new TypeError('You must pass an array to race.');
         }
-      });
-    }
+        return new Promise(function (resolve, reject) {
+          var results = [], promise;
 
-    __exports__.race = race;
-  });
-define("promise/reject", 
-  ["exports"],
-  function(__exports__) {
-    "use strict";
-    /**
-      `RSVP.reject` returns a promise that will become rejected with the passed
-      `reason`. `RSVP.reject` is essentially shorthand for the following:
+          for (var i = 0; i < promises.length; i++) {
+            promise = promises[i];
 
-      ```javascript
-      var promise = new RSVP.Promise(function(resolve, reject){
+            if (promise && typeof promise.then === 'function') {
+              promise.then(resolve, reject);
+            } else {
+              resolve(promise);
+            }
+          }
+        });
+      }
+
+      __exports__.race = race;
+    });
+  define("promise/reject",
+    ["exports"],
+    function (__exports__) {
+      "use strict";
+      /**
+       `RSVP.reject` returns a promise that will become rejected with the passed
+       `reason`. `RSVP.reject` is essentially shorthand for the following:
+
+       ```javascript
+       var promise = new RSVP.Promise(function(resolve, reject){
         reject(new Error('WHOOPS'));
       });
 
-      promise.then(function(value){
+       promise.then(function(value){
         // Code here doesn't run because the promise is rejected!
       }, function(reason){
         // reason.message === 'WHOOPS'
       });
-      ```
+       ```
 
-      Instead of writing the above, your code now simply becomes the following:
+       Instead of writing the above, your code now simply becomes the following:
 
-      ```javascript
-      var promise = RSVP.reject(new Error('WHOOPS'));
+       ```javascript
+       var promise = RSVP.reject(new Error('WHOOPS'));
 
-      promise.then(function(value){
+       promise.then(function(value){
         // Code here doesn't run because the promise is rejected!
       }, function(reason){
         // reason.message === 'WHOOPS'
       });
-      ```
+       ```
 
-      @method reject
-      @for RSVP
-      @param {Any} reason value that the returned promise will be rejected with.
-      @param {String} label optional string for identifying the returned promise.
-      Useful for tooling.
-      @return {Promise} a promise that will become rejected with the given
-      `reason`.
-    */
-    function reject(reason) {
-      /*jshint validthis:true */
-      var Promise = this;
+       @method reject
+       @for RSVP
+       @param {Any} reason value that the returned promise will be rejected with.
+       @param {String} label optional string for identifying the returned promise.
+       Useful for tooling.
+       @return {Promise} a promise that will become rejected with the given
+       `reason`.
+       */
+      function reject(reason) {
+        /*jshint validthis:true */
+        var Promise = this;
 
-      return new Promise(function (resolve, reject) {
-        reject(reason);
-      });
-    }
-
-    __exports__.reject = reject;
-  });
-define("promise/resolve", 
-  ["exports"],
-  function(__exports__) {
-    "use strict";
-    function resolve(value) {
-      /*jshint validthis:true */
-      if (value && typeof value === 'object' && value.constructor === this) {
-        return value;
+        return new Promise(function (resolve, reject) {
+          reject(reason);
+        });
       }
 
-      var Promise = this;
+      __exports__.reject = reject;
+    });
+  define("promise/resolve",
+    ["exports"],
+    function (__exports__) {
+      "use strict";
+      function resolve(value) {
+        /*jshint validthis:true */
+        if (value && typeof value === 'object' && value.constructor === this) {
+          return value;
+        }
 
-      return new Promise(function(resolve) {
-        resolve(value);
-      });
-    }
+        var Promise = this;
 
-    __exports__.resolve = resolve;
-  });
-define("promise/utils", 
-  ["exports"],
-  function(__exports__) {
-    "use strict";
-    function objectOrFunction(x) {
-      return isFunction(x) || (typeof x === "object" && x !== null);
-    }
+        return new Promise(function (resolve) {
+          resolve(value);
+        });
+      }
 
-    function isFunction(x) {
-      return typeof x === "function";
-    }
+      __exports__.resolve = resolve;
+    });
+  define("promise/utils",
+    ["exports"],
+    function (__exports__) {
+      "use strict";
+      function objectOrFunction(x) {
+        return isFunction(x) || (typeof x === "object" && x !== null);
+      }
 
-    function isArray(x) {
-      return Object.prototype.toString.call(x) === "[object Array]";
-    }
+      function isFunction(x) {
+        return typeof x === "function";
+      }
 
-    // Date.now is not available in browsers < IE9
-    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/now#Compatibility
-    var now = Date.now || function() { return new Date().getTime(); };
+      function isArray(x) {
+        return Object.prototype.toString.call(x) === "[object Array]";
+      }
+
+      // Date.now is not available in browsers < IE9
+      // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Date/now#Compatibility
+      var now = Date.now || function () {
+          return new Date().getTime();
+        };
 
 
-    __exports__.objectOrFunction = objectOrFunction;
-    __exports__.isFunction = isFunction;
-    __exports__.isArray = isArray;
-    __exports__.now = now;
-  });
-requireModule('promise/polyfill').polyfill();
+      __exports__.objectOrFunction = objectOrFunction;
+      __exports__.isFunction = isFunction;
+      __exports__.isArray = isArray;
+      __exports__.now = now;
+    });
+  requireModule('promise/polyfill').polyfill();
 }());

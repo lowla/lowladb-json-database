@@ -2,39 +2,42 @@
  * Created by michael on 10/15/14.
  */
 
-(function(LowlaDB) {
+(function (LowlaDB) {
+  'use strict';
 
-  var indexedDB = this.indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
-  var Datastore = function() {
+  var indexedDB = window.indexedDB || window.mozIndexedDB || window.webkitIndexedDB || window.msIndexedDB;
+  var IDBKeyRange = window.IDBKeyRange;
+
+  var Datastore = function () {
     if (!(this instanceof Datastore)) {
       return new Datastore();
     }
   };
 
   Datastore._makeKey = _makeKey;
-  
+
   function _makeKey(clientNs, lowlaId) {
     return clientNs + '$' + lowlaId;
   }
 
   var _ready = false;
-  var db = function() {
+  var db = function () {
     if (!_ready) {
-      if (!indexedDB) {
+      if (!indexedDB || !IDBKeyRange) {
         throw Error('Unable to identify IndexedDB instance');
       }
 
       _ready = new Promise(function (resolve, reject) {
-        var request = indexedDB.open("lowla", 1);
+        var request = indexedDB.open('lowla', 1);
         request.onupgradeneeded = function (e) {
           var db = e.target.result;
 
           e.target.transaction.onerror = reject;
 
-          var store = db.createObjectStore("lowla");
+          var store = db.createObjectStore('lowla');
           // Composite indexes are flaky on Safari so we just index on _id and let the caller
           // perform clientNs filtering.
-          store.createIndex("_id", "document._id", { unique: false});
+          store.createIndex('_id', 'document._id', {unique: false});
         };
 
         request.onsuccess = function (e) {
@@ -50,25 +53,26 @@
     return _ready;
   };
 
-  Datastore.prototype.scanDocuments = function(docFn, doneFn, errFn) {
+  Datastore.prototype.scanDocuments = function (docFn, doneFn, errFn) {
     this.transact(
-      function(tx) {
+      function (tx) {
         tx.scan(docFn, doneFn, errFn);
       },
-      function() {},
+      function () {
+      },
       errFn
     );
   };
 
-  Datastore.prototype.transact = function(callback, doneCallback, errCallback) {
-    errCallback = errCallback || function(){};
+  Datastore.prototype.transact = function (callback, doneCallback, errCallback) {
+    errCallback = errCallback || function () { };
 
-    db().then(function(db) {
-      var tx = db.transaction(["lowla"], "readwrite");
-      tx.oncomplete = function(evt) {
+    db().then(function (db) {
+      var tx = db.transaction(['lowla'], 'readwrite');
+      tx.oncomplete = function (evt) {
         doneCallback();
       };
-      tx.onerror = function(e) {
+      tx.onerror = function (e) {
         errCallback(e);
       };
 
@@ -90,7 +94,7 @@
 
       function loadInTx(clientNs, lowlaId, loadCallback, loadErrCallback) {
         loadErrCallback = loadErrCallback || errCallback;
-        var store = tx.objectStore("lowla");
+        var store = tx.objectStore('lowla');
         var keyRange = IDBKeyRange.only(_makeKey(clientNs, lowlaId));
         var request = store.openCursor(keyRange);
         request.onsuccess = function (evt) {
@@ -102,11 +106,11 @@
 
       function saveInTx(clientNs, lowlaId, doc, saveCallback, saveErrCallback) {
         saveErrCallback = saveErrCallback || errCallback;
-        var store = tx.objectStore("lowla");
+        var store = tx.objectStore('lowla');
         var request = store.put({
-          "clientNs": clientNs,
-          "lowlaId": lowlaId,
-          "document": doc
+          'clientNs': clientNs,
+          'lowlaId': lowlaId,
+          'document': doc
         }, _makeKey(clientNs, lowlaId));
 
         request.onsuccess = function (e) {
@@ -123,17 +127,17 @@
       function scanInTx(scanCallback, scanDoneCallback, scanErrCallback) {
         var options = {};
         if (typeof(scanCallback) === 'object') {
-          scanDoneCallback = scanCallback.done || function () {};
+          scanDoneCallback = scanCallback.done || function () { };
           scanErrCallback = scanCallback.error;
           options = scanCallback.options || {};
-          scanCallback = scanCallback.document || function () {};
+          scanCallback = scanCallback.document || function () { };
         }
         scanErrCallback = scanErrCallback || errCallback;
-        var store = tx.objectStore("lowla");
-        
+        var store = tx.objectStore('lowla');
+
         var request;
         if (options._id) {
-          var index = store.index("_id");
+          var index = store.index('_id');
           var keyRange = IDBKeyRange.only(options._id);
           request = index.openCursor(keyRange);
         }
@@ -159,8 +163,8 @@
 
       function removeInTx(clientNs, lowlaId, removeDoneCallback, removeErrCallback) {
         removeErrCallback = removeErrCallback || errCallback;
-        var request = tx.objectStore("lowla").delete(_makeKey(clientNs, lowlaId));
-        request.onsuccess = function() {
+        var request = tx.objectStore('lowla').delete(_makeKey(clientNs, lowlaId));
+        request.onsuccess = function () {
           if (removeDoneCallback) {
             removeDoneCallback(txWrapper);
           }
@@ -171,16 +175,15 @@
 
   };
 
-  Datastore.prototype.loadDocument = function(clientNs, lowlaId, docFn, errFn) {
-    db().then(function(db) {
+  Datastore.prototype.loadDocument = function (clientNs, lowlaId, docFn, errFn) {
+    db().then(function (db) {
       if (typeof(docFn) === 'object') {
         errFn = docFn.error || function (err) { throw err; };
-        docFn = docFn.document || function () {
-        };
+        docFn = docFn.document || function () { };
       }
 
-      var trans = db.transaction(["lowla"], "readwrite");
-      var store = trans.objectStore("lowla");
+      var trans = db.transaction(['lowla'], 'readwrite');
+      var store = trans.objectStore('lowla');
 
       var keyRange = IDBKeyRange.only(_makeKey(clientNs, lowlaId));
       var cursorRequest = store.openCursor(keyRange);
@@ -201,14 +204,14 @@
     });
   };
 
-  Datastore.prototype.updateDocument = function(clientNs, lowlaId, doc, doneFn, errorFn) {
+  Datastore.prototype.updateDocument = function (clientNs, lowlaId, doc, doneFn, errorFn) {
     db().then(function (db) {
-      var trans = db.transaction(["lowla"], "readwrite");
-      var store = trans.objectStore("lowla");
+      var trans = db.transaction(['lowla'], 'readwrite');
+      var store = trans.objectStore('lowla');
       var request = store.put({
-        "clientNs": clientNs,
-        "lowlaId": lowlaId,
-        "document": doc
+        'clientNs': clientNs,
+        'lowlaId': lowlaId,
+        'document': doc
       }, _makeKey(clientNs, lowlaId));
 
       trans.oncomplete = function (e) {
@@ -225,32 +228,32 @@
     });
   };
 
-  Datastore.prototype.close = function() {
+  Datastore.prototype.close = function () {
     if (_ready) {
-      return _ready.then(function(db) {
+      return _ready.then(function (db) {
         _ready = false;
         db.close();
       });
     }
   };
 
-  Datastore.prototype.countAll = function(clientNs, doneFn, errFn) {
-    db().then(function(db) {
-      var trans = db.transaction(["lowla"], "readwrite");
-      var store = trans.objectStore("lowla");
+  Datastore.prototype.countAll = function (clientNs, doneFn, errFn) {
+    db().then(function (db) {
+      var trans = db.transaction(['lowla'], 'readwrite');
+      var store = trans.objectStore('lowla');
       var keyRange = IDBKeyRange.bound(clientNs + '$', clientNs + '%', false, true);
       var request = store.count(keyRange);
-      request.onsuccess = function() {
+      request.onsuccess = function () {
         doneFn(request.result);
       };
       if (errFn) {
-        request.onerror = function(e) {
+        request.onerror = function (e) {
           errFn(e);
         };
       }
     });
   };
-  
+
   LowlaDB.registerDatastore('IndexedDB', new Datastore());
 
   return LowlaDB;

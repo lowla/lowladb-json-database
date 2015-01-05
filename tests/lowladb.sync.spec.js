@@ -1,8 +1,10 @@
 /**
-* Created by michael on 10/10/14.
-*/
+ * Created by michael on 10/10/14.
+ */
 
-testUtils.eachDatastore(function(dsName) {
+testUtils.eachDatastore(function (dsName) {
+  'use strict';
+
   describe('LowlaDB Sync (' + dsName + ')', function () {
     beforeEach(testUtils.setUpFn(dsName));
     afterEach(testUtils.tearDownFn());
@@ -69,8 +71,10 @@ testUtils.eachDatastore(function(dsName) {
       return answer;
     };
 
-    it('fails with missing sync URLs', function() {
-      var fn = function() { lowla.sync(); };
+    it('fails with missing sync URLs', function () {
+      var fn = function () {
+        lowla.sync();
+      };
       fn.should.throw(/Invalid server URL/);
     });
 
@@ -95,19 +99,20 @@ testUtils.eachDatastore(function(dsName) {
         });
       });
 
-      it('can process an empty response', function() {
-         return lowla._syncCoordinator.processChanges({ sequence: 1, atoms: [] })
-           .then(function(arg) {
-             should.not.exist(arg);
-           });
+      it('can process an empty response', function () {
+        return lowla._syncCoordinator.processChanges({sequence: 1, atoms: []})
+          .then(function (arg) {
+            should.not.exist(arg);
+          });
       });
 
       it('requests changes from Adapter', function () {
         getJSON.returns(Promise.resolve({}));
-        return lowla._syncCoordinator.processChanges(makeChangesResponse('dbName.collectionOne$1234'))
+        var objId = 'dbName.collectionOne$1234';
+        return lowla._syncCoordinator.processChanges(makeChangesResponse(objId))
           .then(function () {
             getJSON.callCount.should.equal(1);
-            getJSON.getCall(0).should.have.been.calledWith('http://lowla.io/_lowla/pull', {ids: ['dbName.collectionOne$1234']});
+            getJSON.getCall(0).should.have.been.calledWith('http://lowla.io/_lowla/pull', {ids: [objId]});
           });
       });
 
@@ -215,7 +220,8 @@ testUtils.eachDatastore(function(dsName) {
       });
 
       it('can import dates from adapter', function () {
-        var pullResponse = makeAdapterResponse({_id: '1234', a: 1, date: {_bsonType: 'Date', millis: 132215400000}}); // 1974-Mar-11
+        // 132215400000 = 1974-Mar-11
+        var pullResponse = makeAdapterResponse({_id: '1234', a: 1, date: {_bsonType: 'Date', millis: 132215400000}});
         return lowla._syncCoordinator.processPull(pullResponse)
           .then(function () {
             return coll.findOne({_id: '1234'});
@@ -309,30 +315,34 @@ testUtils.eachDatastore(function(dsName) {
           .catch(done);
       });
 
-      it('pulls multiple documents ten at a time', function() {
-        var changes = makeChangesResponse('1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15');
-        getJSON.onFirstCall().returns(Promise.resolve(makeAdapterResponse({_id: '1'}, {_id: '2' }, { _id: '3' }, {_id: '4' }, {_id: '5' }, {_id: '6'}, {_id: '7'}, {_id: '8' }, {_id: '9'}, {_id: '10' })));
-        getJSON.onSecondCall().returns(Promise.resolve(makeAdapterResponse({_id: '11'}, {_id: '12' }, { _id: '13' }, {_id: '14' }, {_id: '15' })));
+      it('pulls multiple documents ten at a time', function () {
+        var changes = makeChangesResponse('1', '2', '3', '4', '5', '6', '7', '8', '9', '10',
+          '11', '12', '13', '14', '15');
+        getJSON.onFirstCall().returns(Promise.resolve(makeAdapterResponse({_id: '1'}, {_id: '2'}, {_id: '3'},
+          {_id: '4'}, {_id: '5'}, {_id: '6'}, {_id: '7'}, {_id: '8'}, {_id: '9'}, {_id: '10'})));
+        getJSON.onSecondCall().returns(Promise.resolve(makeAdapterResponse({_id: '11'}, {_id: '12'}, {_id: '13'},
+          {_id: '14'}, {_id: '15'})));
+
         var processPull = testUtils.sandbox.spy(lowla._syncCoordinator, 'processPull');
         return lowla._syncCoordinator.processChanges(changes)
-          .then(function() {
+          .then(function () {
             getJSON.callCount.should.equal(2);
             getJSON.args[0][1].ids.length.should.equal(10);
             getJSON.args[1][1].ids.length.should.equal(5);
             processPull.callCount.should.equal(2);
             return coll.find().toArray();
           })
-          .then(function(arr) {
+          .then(function (arr) {
             arr.length.should.equal(15);
           });
       });
 
-      it('re-pulls documents it did not receive from a pull request', function() {
+      it('re-pulls documents it did not receive from a pull request', function () {
         var changes = makeChangesResponse('1', '2', '3', '4');
         getJSON.onFirstCall().returns(Promise.resolve(makeAdapterResponse({_id: '1'}, {_id: '3'})));
         getJSON.onSecondCall().returns(Promise.resolve(makeAdapterResponse({_id: '2'}, {_id: '4'})));
         return lowla._syncCoordinator.processChanges(changes)
-          .then(function() {
+          .then(function () {
             getJSON.callCount.should.equals(2);
             getJSON.args[0][1].ids.length.should.equal(4);
             getJSON.args[1][1].ids.length.should.equal(2);
@@ -341,15 +351,15 @@ testUtils.eachDatastore(function(dsName) {
           });
       });
 
-      it('does not change sequence if all changed IDs are not pulled', function() {
+      it('does not change sequence if all changed IDs are not pulled', function () {
         var changes = makeChangesResponse(5, '1', '2', '3', '4');
         getJSON.onFirstCall().returns(Promise.resolve(makeAdapterResponse({_id: '1'}, {_id: '3'})));
         getJSON.onSecondCall().returns(Promise.resolve([]));
-        return lowla._metadata({ sequence: 3 })
-          .then(function() {
+        return lowla._metadata({sequence: 3})
+          .then(function () {
             return lowla._syncCoordinator.processChanges(changes);
           })
-          .then(function() {
+          .then(function () {
             getJSON.callCount.should.equals(2);
             getJSON.args[0][1].ids.length.should.equal(4);
             getJSON.args[1][1].ids.length.should.equal(2);
@@ -357,23 +367,23 @@ testUtils.eachDatastore(function(dsName) {
             getJSON.args[1][1].ids[1].should.equal('dbName.collectionOne$4');
             return lowla._metadata();
           })
-          .then(function(doc) {
+          .then(function (doc) {
             doc.sequence.should.equal(4);
           });
       });
 
-      it('does not change sequence if any changed IDs are not pulled', function() {
+      it('does not change sequence if any changed IDs are not pulled', function () {
         var changes = makeChangesResponse(25, '1', '2', '3', '4');
         getJSON.onFirstCall().returns(Promise.resolve([]));
-        return lowla._metadata({ sequence: 17 })
-          .then(function() {
+        return lowla._metadata({sequence: 17})
+          .then(function () {
             return lowla._syncCoordinator.processChanges(changes);
           })
-          .then(function() {
+          .then(function () {
             getJSON.callCount.should.equals(1);
             return lowla._metadata();
           })
-          .then(function(doc) {
+          .then(function (doc) {
             doc.sequence.should.equal(17);
           });
       });
@@ -394,8 +404,8 @@ testUtils.eachDatastore(function(dsName) {
             should.not.exist(payload.documents[0]._lowla.deleted);
             payload.documents[0].ops.should.deep.equal({
               $set: {
-                "a": 1,
-                "b": 2
+                'a': 1,
+                'b': 2
               }
             });
           });
@@ -418,8 +428,8 @@ testUtils.eachDatastore(function(dsName) {
             should.not.exist(payload.documents[0]._lowla.deleted);
             payload.documents[0].ops.should.deep.equal({
               $set: {
-                "a": 1,
-                "b": 22
+                'a': 1,
+                'b': 22
               }
             });
           });
@@ -461,33 +471,33 @@ testUtils.eachDatastore(function(dsName) {
           });
       });
 
-      it('will not create payload for a modified document that is reverted', function() {
-        return coll.insert({_id: '1234', a: 1, b: 2, c: 3, d: 4, deep: { b:  5}})
-          .then(function() {
+      it('will not create payload for a modified document that is reverted', function () {
+        return coll.insert({_id: '1234', a: 1, b: 2, c: 3, d: 4, deep: {b: 5}})
+          .then(function () {
             return lowla._syncCoordinator.clearPushData();
           })
-          .then(function() {
-            return coll.findAndModify({_id: '1234'}, {$set: {a: 2, deep: 'f' }});
+          .then(function () {
+            return coll.findAndModify({_id: '1234'}, {$set: {a: 2, deep: 'f'}});
           })
-          .then(function() {
-            return coll.findAndModify({_id: '1234'}, {$set: { a: 11, x: 10 }});
+          .then(function () {
+            return coll.findAndModify({_id: '1234'}, {$set: {a: 11, x: 10}});
           })
-          .then(function() {
-            return coll.findAndModify({_id: '1234'}, {$unset: { d: true }});
+          .then(function () {
+            return coll.findAndModify({_id: '1234'}, {$unset: {d: true}});
           })
-          .then(function() {
-            return coll.findAndModify({_id: '1234'}, {$unset: { x: true }});
+          .then(function () {
+            return coll.findAndModify({_id: '1234'}, {$unset: {x: true}});
           })
-          .then(function() {
-            return coll.findAndModify({_id: '1234'}, {$set: { a: 1, d: 4 }});
+          .then(function () {
+            return coll.findAndModify({_id: '1234'}, {$set: {a: 1, d: 4}});
           })
-          .then(function() {
-            return coll.findAndModify({_id: '1234'}, {$set: {deep: { b: 5 }}});
+          .then(function () {
+            return coll.findAndModify({_id: '1234'}, {$set: {deep: {b: 5}}});
           })
-          .then(function() {
+          .then(function () {
             return lowla._syncCoordinator.collectPushData();
           })
-          .then(function(payload) {
+          .then(function (payload) {
             should.not.exist(payload);
           });
       });
@@ -511,15 +521,15 @@ testUtils.eachDatastore(function(dsName) {
           });
       });
 
-      it('will send deletes on push if local document was never sent', function() {
+      it('will send deletes on push if local document was never sent', function () {
         return coll.insert({_id: '1234', a: 1})
-          .then(function() {
+          .then(function () {
             return coll.remove({_id: '1234'});
           })
-          .then(function() {
+          .then(function () {
             return lowla._syncCoordinator.collectPushData();
           })
-          .then(function(payload) {
+          .then(function (payload) {
             // Lowla should still send deletes for new documents it removed before pushing; it is up to the server to
             // ignore these "empty" deletes.
             // This behavior is necessary to properly handle a case where a new document is sent to the server and is
@@ -544,20 +554,20 @@ testUtils.eachDatastore(function(dsName) {
           });
       });
 
-      it('can process a push response that switches the ID of the document', function() {
+      it('can process a push response that switches the ID of the document', function () {
         var pushResponse = makeAdapterResponse({_id: '123456', a: 2, b: 5});
         pushResponse[0].clientId = 'dbName.collectionOne$1234';
         return coll.insert({_id: '1234', a: 2, b: 5})
           .then(function () {
             return lowla._syncCoordinator.clearPushData();
           })
-          .then(function() {
+          .then(function () {
             return lowla._syncCoordinator.processPushResponse(pushResponse);
           })
-          .then(function() {
+          .then(function () {
             return coll.find().toArray();
           })
-          .then(function(arr) {
+          .then(function (arr) {
             arr.should.have.length(1);
             arr[0]._id.should.equal('123456');
           });
@@ -609,7 +619,7 @@ testUtils.eachDatastore(function(dsName) {
         return coll.insert({a: 1})
           .then(function (obj) {
             objId = obj._id;
-            var pushResponse = makeAdapterResponse({_id: objId+'New', a: 1});
+            var pushResponse = makeAdapterResponse({_id: objId + 'New', a: 1});
             pushResponse[0].clientId = 'dbName.collectionOne$' + objId;
             getJSON.returns(Promise.resolve(pushResponse));
             return lowla._syncCoordinator.pushChanges();
@@ -620,7 +630,7 @@ testUtils.eachDatastore(function(dsName) {
           .then(function (arr) {
             arr.should.have.length(1);
             var doc = arr[0];
-            doc._id.should.equal(objId+'New');
+            doc._id.should.equal(objId + 'New');
             return lowla._syncCoordinator.collectPushData();
           })
           .then(function (payload) {
@@ -628,84 +638,87 @@ testUtils.eachDatastore(function(dsName) {
           });
       });
 
-      it('will not overwrite documents from pull response if modified locally', function() {
+      it('will not overwrite documents from pull response if modified locally', function () {
         getJSON.restore();
-        getJSON = testUtils.sandbox.stub(LowlaDB.utils, 'getJSON', function() {
-          return coll.findAndModify({_id: '1234'}, {$set: { a: 5 }})
-            .then(function(obj) {
+        getJSON = testUtils.sandbox.stub(LowlaDB.utils, 'getJSON', function () {
+          return coll.findAndModify({_id: '1234'}, {$set: {a: 5}})
+            .then(function (obj) {
               return makeAdapterResponse({_id: '1234', a: 3});
             });
         });
 
         return coll.insert({_id: '1234', a: 1})
-          .then(function() {
+          .then(function () {
             return lowla._syncCoordinator.pushChanges();
           })
-          .then(function() {
+          .then(function () {
             return coll.findOne({_id: '1234'});
           })
-          .then(function(obj) {
+          .then(function (obj) {
             obj.a.should.equal(5);
             return lowla._syncCoordinator.collectPushData([]);
           })
-          .then(function(payload) {
+          .then(function (payload) {
             payload.documents.should.have.length(1);
             payload.documents[0]._lowla.id.should.equal('dbName.collectionOne$1234');
             payload.documents[0].ops.$set.a.should.equal(5);
           });
       });
 
-      it('will overwrite modified documents on the second pull', function() {
+      it('will overwrite modified documents on the second pull', function () {
         getJSON.restore();
-        getJSON = testUtils.sandbox.stub(LowlaDB.utils, 'getJSON', function() {
+        getJSON = testUtils.sandbox.stub(LowlaDB.utils, 'getJSON', function () {
           getJSON.restore();
-          testUtils.sandbox.stub(LowlaDB.utils, 'getJSON').returns(Promise.resolve(makeAdapterResponse({_id: '1234', a: 7})));
+          testUtils.sandbox.stub(LowlaDB.utils, 'getJSON').returns(Promise.resolve(makeAdapterResponse({
+            _id: '1234',
+            a: 7
+          })));
 
-          return coll.findAndModify({_id: '1234'}, {$set: { a: 5 }})
-            .then(function() {
+          return coll.findAndModify({_id: '1234'}, {$set: {a: 5}})
+            .then(function () {
               return makeAdapterResponse({_id: '1234', a: 3});
             });
         });
         return coll.insert({_id: '1234', a: 1})
-          .then(function() {
+          .then(function () {
             return lowla._syncCoordinator.pushChanges();
           })
-          .then(function() {
+          .then(function () {
             return coll.findOne({_id: '1234'});
           })
-          .then(function(obj) {
+          .then(function (obj) {
             obj.a.should.equal(5);
             return lowla._syncCoordinator.pushChanges();
           })
-          .then(function() {
+          .then(function () {
             return coll.findOne({_id: '1234'});
           })
-          .then(function(obj) {
+          .then(function (obj) {
             obj.a.should.equal(7);
           });
       });
 
-      it('will not recreate documents that were removed before pull response', function() {
+      it('will not recreate documents that were removed before pull response', function () {
         getJSON.restore();
-        getJSON = testUtils.sandbox.stub(LowlaDB.utils, 'getJSON', function() {
+        getJSON = testUtils.sandbox.stub(LowlaDB.utils, 'getJSON', function () {
           return coll.remove({_id: '1234'})
-            .then(function(obj) {
+            .then(function (obj) {
               return makeAdapterResponse({_id: '1234', a: 3});
             });
         });
 
         return coll.insert({_id: '1234', a: 1})
-          .then(function() {
+          .then(function () {
             return lowla._syncCoordinator.pushChanges();
           })
-          .then(function() {
+          .then(function () {
             return coll.findOne({_id: '1234'});
           })
-          .then(function(obj) {
+          .then(function (obj) {
             should.not.exist(obj);
             return lowla._syncCoordinator.collectPushData([]);
           })
-          .then(function(payload) {
+          .then(function (payload) {
             payload.documents.should.have.length(1);
             payload.documents[0]._lowla.id.should.equal('dbName.collectionOne$1234');
             payload.documents[0]._lowla.deleted.should.equal(true);
@@ -761,7 +774,7 @@ testUtils.eachDatastore(function(dsName) {
           .catch(done);
       });
 
-      it('fires pullEnd after an error', function() {
+      it('fires pullEnd after an error', function () {
         // silence the console message
         var log = testUtils.sandbox.stub(console, 'log');
 
@@ -771,37 +784,37 @@ testUtils.eachDatastore(function(dsName) {
         getJSON.onFirstCall().returns(Promise.resolve(changes));
         getJSON.onSecondCall().throws(Error('Bad request'));
         return lowla._syncCoordinator.fetchChanges()
-          .then(function() {
+          .then(function () {
             pullEnd.callCount.should.equal(1);
             log.callCount.should.equal(1);
           });
       });
 
-      it('fires pushEnd after an error', function() {
+      it('fires pushEnd after an error', function () {
         // silence the console message
         var log = testUtils.sandbox.stub(console, 'log');
 
         var pushEnd = testUtils.sandbox.stub();
         lowla.on('pushEnd', pushEnd);
         getJSON.throws(Error('Bad request'));
-        return coll.insert({a:1})
-          .then(function() {
+        return coll.insert({a: 1})
+          .then(function () {
             return lowla._syncCoordinator.pushChanges();
           })
-          .then(function() {
+          .then(function () {
             pushEnd.callCount.should.equal(1);
             log.callCount.should.equal(1);
           });
       });
     });
 
-    describe('Socket.IO', function() {
+    describe('Socket.IO', function () {
       var mockIo;
       var mockSocket;
       var debounce;
       var pushPullFn;
 
-      beforeEach(function() {
+      beforeEach(function () {
         mockSocket = {
           on: testUtils.sandbox.stub()
         };
@@ -817,10 +830,10 @@ testUtils.eachDatastore(function(dsName) {
         testUtils.sandbox.stub(LowlaDB.SyncCoordinator.prototype, 'pushChanges').returns(Promise.resolve({}));
         testUtils.sandbox.stub(LowlaDB.SyncCoordinator.prototype, 'fetchChanges').returns(Promise.resolve({}));
 
-        return lowla.sync('http://lowla.io', { io: mockIo });
+        return lowla.sync('http://lowla.io', {io: mockIo});
       });
 
-      it('registers for Socket.IO events', function() {
+      it('registers for Socket.IO events', function () {
         mockSocket.on.callCount.should.equal(2);
         mockSocket.on.getCall(0).args[0].should.equal('changes');
         mockSocket.on.getCall(0).args[1].should.be.a('function');
@@ -829,13 +842,13 @@ testUtils.eachDatastore(function(dsName) {
         debounce.callCount.should.equal(1);
       });
 
-      it('invokes pushPull on changes event', function() {
+      it('invokes pushPull on changes event', function () {
         pushPullFn.callCount.should.equal(0);
         mockSocket.on.getCall(0).args[1]();
         pushPullFn.callCount.should.equal(1);
       });
 
-      it('invokes pushPull on reconnect event', function() {
+      it('invokes pushPull on reconnect event', function () {
         pushPullFn.callCount.should.equal(0);
         mockSocket.on.getCall(1).args[1]();
         pushPullFn.callCount.should.equal(1);
@@ -922,27 +935,27 @@ testUtils.eachDatastore(function(dsName) {
       });
     });
 
-    describe('Load', function() {
-      it('can load documents from an object', function() {
-        var resp = makeAdapterResponse({ _id: '1234', a: 1}, { _id: '2345', a: 2}, { _id: '3456', a: 3});
-        return lowla.load({ sequence: 5, documents: [ resp ]})
-          .then(function() {
+    describe('Load', function () {
+      it('can load documents from an object', function () {
+        var resp = makeAdapterResponse({_id: '1234', a: 1}, {_id: '2345', a: 2}, {_id: '3456', a: 3});
+        return lowla.load({sequence: 5, documents: [resp]})
+          .then(function () {
             return coll.find().toArray();
           })
-          .then(function(arr) {
+          .then(function (arr) {
             arr.length.should.equal(3);
             return lowla._metadata();
           })
-          .then(function(metaDoc) {
+          .then(function (metaDoc) {
             metaDoc.sequence.should.equal(5);
           });
       });
 
-      it('can load many documents from a url', function() {
-        var payload = { sequence: 22, documents: [ ] };
+      it('can load many documents from a url', function () {
+        var payload = {sequence: 22, documents: []};
         var docs = [];
         for (var i = 1; i <= 25; i++) {
-          docs.push( { _id: 'fakeId' + i, i: i });
+          docs.push({_id: 'fakeId' + i, i: i});
           if (docs.length === 10) {
             payload.documents.push(makeAdapterResponse(docs));
             docs = [];
@@ -959,32 +972,32 @@ testUtils.eachDatastore(function(dsName) {
         getJSON.returns(Promise.resolve(payload));
 
         return lowla.load('http://lowla.io/my-data.json')
-          .then(function() {
+          .then(function () {
             return coll.find().toArray();
           })
-          .then(function(arr) {
+          .then(function (arr) {
             arr.length.should.equal(25);
             return lowla._metadata();
           })
-          .then(function(metaDoc) {
+          .then(function (metaDoc) {
             metaDoc.sequence.should.equal(22);
           });
       });
 
-      it('invokes a given callback', function(done) {
-        var resp = makeAdapterResponse({ _id: '1234', a: 1}, { _id: '2345', a: 2}, { _id: '3456', a: 3});
-        return lowla.load({ sequence: 5, documents: [ resp ]}, testUtils.cb(done, function(err, res) {
+      it('invokes a given callback', function (done) {
+        var resp = makeAdapterResponse({_id: '1234', a: 1}, {_id: '2345', a: 2}, {_id: '3456', a: 3});
+        return lowla.load({sequence: 5, documents: [resp]}, testUtils.cb(done, function (err, res) {
           should.not.exist(err);
           res.should.equal(5);
         }))
           .then(null, done);
       });
 
-      it('fails appropriately when URL is unavailable', function(done) {
+      it('fails appropriately when URL is unavailable', function (done) {
         getJSON.throws(Error('Invalid URL'));
         lowla.load('http://lowla.io/my-data.json')
           .should.eventually.be.rejectedWith(Error, /Invalid URL/)
-          .then(function() {
+          .then(function () {
             lowla.load('http://lowla.io/my-data.json', testUtils.cb(done, function (err, seq) {
               should.not.exist(seq);
               err.should.match(/Invalid URL/);

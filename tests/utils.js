@@ -1,4 +1,6 @@
-var testUtils = (function() {
+'use strict';
+
+var testUtils = (function () {
   var service = {
     setUpFn: setUpFn,
     tearDownFn: tearDownFn,
@@ -10,10 +12,10 @@ var testUtils = (function() {
 
   function setUpFn(dsName) {
     return function setUp(done) {
-      window.lowla = new LowlaDB({ datastore: dsName });
+      window.lowla = new LowlaDB({datastore: dsName});
 
       service.sandbox = sinon.sandbox.create();
-      var req = indexedDB.deleteDatabase("lowla");
+      var req = indexedDB.deleteDatabase('lowla');
       req.onsuccess = function () {
         done();
       };
@@ -21,7 +23,7 @@ var testUtils = (function() {
       req.onerror = function () {
         done('failed to delete db in beforeEach');
       };
-    }
+    };
   }
 
   function tearDownFn() {
@@ -31,11 +33,11 @@ var testUtils = (function() {
         service.sandbox = undefined;
       }
       lowla.close();
-    }
+    };
   }
 
   function makeCb(done, fn) {
-    return function(err, obj) {
+    return function (err, obj) {
       try {
         fn(err, obj);
         done();
@@ -43,7 +45,7 @@ var testUtils = (function() {
       catch (e) {
         done(e);
       }
-    }
+    };
   }
 
   function eachDatastore(fn) {

@@ -2,7 +2,9 @@
  * Created by michael on 11/13/14.
  */
 
-(function(LowlaDB) {
+(function (LowlaDB) {
+  'use strict';
+
   var data = {};
 
   // Public API
@@ -10,9 +12,9 @@
   MemoryDatastore.prototype.transact = transact;
   MemoryDatastore.prototype.loadDocument = loadDocument;
   MemoryDatastore.prototype.updateDocument = updateDocument;
-  MemoryDatastore.prototype.close = close;
+  MemoryDatastore.prototype.close = closeDb;
   MemoryDatastore.prototype.countAll = countAll;
-  
+
   LowlaDB.registerDatastore('Memory', new MemoryDatastore());
   return LowlaDB;
   ///////////////
@@ -26,7 +28,7 @@
   function _copyObj(obj) {
     if (obj) {
       var copy = {};
-      LowlaDB.utils.keys(obj).forEach(function(key) {
+      LowlaDB.utils.keys(obj).forEach(function (key) {
         if (typeof obj[key] === 'object') {
           copy[key] = _copyObj(obj[key]);
         }
@@ -40,12 +42,12 @@
     return obj;
   }
 
-  function close() {
+  function closeDb() {
     data = {};
   }
 
   function updateDocument(clientNs, lowlaID, doc, doneFn) {
-    data[clientNs + "$" + lowlaID] = {
+    data[clientNs + '$' + lowlaID] = {
       clientNs: clientNs,
       lowlaId: lowlaID,
       document: doc
@@ -55,7 +57,7 @@
 
   function loadDocument(clientNs, lowlaID, docFn) {
     if (typeof(docFn) === 'object') {
-      docFn = docFn.document || function () {};
+      docFn = docFn.document || function () { };
     }
 
     var doc = data[clientNs + '$' + lowlaID];
@@ -68,23 +70,23 @@
   }
 
   function scanDocuments(docFn, doneFn) {
-    this.transact(
-      function(tx) {
+    transact(
+      function (tx) {
         tx.scan(docFn, doneFn);
       },
-      function() {},
-      function() {}
+      function () { },
+      function () { }
     );
   }
 
   function remove(clientNs, lowlaID, doneFn) {
-    delete data[clientNs + "$" + lowlaID];
+    delete data[clientNs + '$' + lowlaID];
     doneFn();
   }
-  
+
   function countAll(clientNs, doneFn) {
     var count = 0;
-    LowlaDB.utils.keys(data).forEach(function(key) {
+    LowlaDB.utils.keys(data).forEach(function (key) {
       if (data[key].clientNs === clientNs) {
         ++count;
       }
@@ -93,7 +95,8 @@
   }
 
   function transact(callback, doneCallback, errCallback) {
-    errCallback = errCallback || function(){};
+    errCallback = errCallback || function () { };
+
     var txWrapper = {
       errCb: errCallback,
       load: loadInTx,
@@ -103,7 +106,7 @@
     };
 
     try {
-      setTimeout(function() {
+      setTimeout(function () {
         doneCallback();
       }, 0);
 
@@ -115,7 +118,7 @@
     /////////////////
 
     function loadInTx(clientNs, lowlaID, loadCallback) {
-      loadDocument(clientNs, lowlaID, function(doc) {
+      loadDocument(clientNs, lowlaID, function (doc) {
         if (loadCallback) {
           loadCallback(doc, txWrapper);
         }
@@ -123,7 +126,7 @@
     }
 
     function saveInTx(clientNs, lowlaID, doc, saveCallback) {
-      updateDocument(clientNs, lowlaID, doc, function(doc) {
+      updateDocument(clientNs, lowlaID, doc, function (doc) {
         if (saveCallback) {
           saveCallback(doc, txWrapper);
         }
@@ -138,7 +141,7 @@
         };
       }
 
-      LowlaDB.utils.keys(data).forEach(function(key) {
+      LowlaDB.utils.keys(data).forEach(function (key) {
         scanCallback(_copyObj(data[key]), txWrapper);
       });
 
@@ -146,7 +149,7 @@
     }
 
     function removeInTx(clientNs, lowlaID, removeDoneCallback) {
-      remove(clientNs, lowlaID, function() {
+      remove(clientNs, lowlaID, function () {
         if (removeDoneCallback) {
           removeDoneCallback(txWrapper);
         }

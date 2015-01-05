@@ -1,4 +1,4 @@
-(function(LowlaDB) {
+(function (LowlaDB) {
   'use strict';
 
   LowlaDB.Collection = Collection;
@@ -91,29 +91,29 @@
     /*jshint validthis:true */
     var coll = this;
     var savedDoc = null;
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       coll.datastore.transact(oldDocId ? doRemoveThenUpdate : doUpdate, resolve, reject);
 
       function doRemoveThenUpdate(tx) {
-        coll._removeDocumentInTx(tx, oldDocId, true, function() {
+        coll._removeDocumentInTx(tx, oldDocId, true, function () {
           doUpdate(tx);
         });
       }
 
       function doUpdate(tx) {
-        coll._updateDocumentInTx(tx, lowlaId, obj, flagEight, function(doc) {
+        coll._updateDocumentInTx(tx, lowlaId, obj, flagEight, function (doc) {
           savedDoc = doc;
         });
       }
     })
-      .then(function() {
+      .then(function () {
         return savedDoc;
       });
   }
 
   function _updateDocumentInTx(tx, lowlaId, obj, flagEight, savedCallback) {
     /*jshint validthis:true */
-    savedCallback = savedCallback || function(){};
+    savedCallback = savedCallback || function () { };
     var coll = this;
     obj._id = obj._id || generateId();
     lowlaId = lowlaId || coll.lowla._generateLowlaId(coll, obj);
@@ -144,7 +144,7 @@
   function _removeDocument(lowlaID, flagEight) {
     /*jshint validthis:true */
     var coll = this;
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       coll.datastore.transact(doUpdate, resolve, reject);
       function doUpdate(tx) {
         coll._removeDocumentInTx(tx, lowlaID, flagEight);
@@ -153,11 +153,11 @@
   }
 
   function _removeDocumentInTx(tx, lowlaID, flagEight, removedCallback) {
-    removedCallback = removedCallback || function(){};
-    
+    removedCallback = removedCallback || function () { };
+
     /*jshint validthis:true */
     var clientNs = this.dbName + '.' + this.collectionName;
-    
+
     if (flagEight) {
       removeOnly(tx);
     }
@@ -185,7 +185,7 @@
     }
 
     var answer = true;
-    LowlaDB.utils.keys(oldObj).forEach(function(oldKey) {
+    LowlaDB.utils.keys(oldObj).forEach(function (oldKey) {
       if (!answer) {
         return answer;
       }
@@ -210,8 +210,9 @@
 
     return answer;
   }
+
   function updateWithMeta(tx, clientNs, lowlaID, nextFn, newDoc) {
-    tx.load("", "$metadata", checkMeta);
+    tx.load('', '$metadata', checkMeta);
 
     function checkMeta(metaDoc, tx) {
       if (!metaDoc || !metaDoc.changes || !metaDoc.changes[lowlaID]) {
@@ -220,7 +221,7 @@
       else if (newDoc) {
         if (isSameObject(metaDoc.changes[lowlaID], newDoc)) {
           delete metaDoc.changes[lowlaID];
-          tx.save("", "$metadata", metaDoc, nextFn);
+          tx.save('', '$metadata', metaDoc, nextFn);
         }
         else {
           nextFn(metaDoc, tx);
@@ -235,7 +236,7 @@
         metaDoc = metaDoc || {changes: {}};
         metaDoc.changes = metaDoc.changes || {};
         metaDoc.changes[lowlaID] = oldDoc;
-        tx.save("", "$metadata", metaDoc, nextFn);
+        tx.save('', '$metadata', metaDoc, nextFn);
       }
     }
   }
@@ -244,10 +245,10 @@
     /*jshint validthis:true */
     var coll = this;
     var savedDoc = [];
-    return new Promise(function(resolve, reject) {
-      var docs = LowlaDB.utils.isArray(arg) ? arg : [ arg ];
-      docs.forEach(function(doc) {
-        LowlaDB.utils.keys(doc).forEach(function(key) {
+    return new Promise(function (resolve, reject) {
+      var docs = LowlaDB.utils.isArray(arg) ? arg : [arg];
+      docs.forEach(function (doc) {
+        LowlaDB.utils.keys(doc).forEach(function (key) {
           if (key.substring(0, 1) === '$') {
             reject(Error('The dollar ($) prefixed field ' + key + ' is not valid'));
           }
@@ -269,7 +270,7 @@
         }
       }
     })
-      .then(function() {
+      .then(function () {
         coll.lowla.emit('_pending');
         if (!LowlaDB.utils.isArray(arg)) {
           savedDoc = savedDoc.length ? savedDoc[0] : null;
@@ -279,7 +280,7 @@
         }
         return savedDoc;
       })
-      .catch(function(e) {
+      .catch(function (e) {
         if (callback) {
           callback(e);
         }
@@ -291,16 +292,16 @@
     /*jshint validthis:true */
     var coll = this;
     return Promise.resolve()
-      .then(function() {
+      .then(function () {
         return LowlaDB.Cursor(coll, filter).limit(1).toArray();
       })
-      .then(function(arr) {
+      .then(function (arr) {
         var obj = (arr && arr.length > 0) ? arr[0] : undefined;
         if (callback) {
           callback(null, obj);
         }
         return obj;
-      }, function(err) {
+      }, function (err) {
         if (callback) {
           callback(err);
         }
@@ -317,7 +318,7 @@
     /*jshint validthis:true */
     var coll = this;
     var savedObj = null;
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       coll.datastore.transact(doFind, resolve, reject);
 
       function doFind(tx) {
@@ -330,18 +331,18 @@
         }
 
         var obj = mutateObject(docArr[0].document, operations);
-        coll._updateDocumentInTx(tx, docArr[0].lowlaId, obj, false, function(obj) {
+        coll._updateDocumentInTx(tx, docArr[0].lowlaId, obj, false, function (obj) {
           savedObj = obj;
         }, reject);
       }
     })
-      .then(function() {
+      .then(function () {
         coll.lowla.emit('_pending');
         if (callback) {
           callback(null, savedObj);
         }
         return savedObj;
-      }, function(err) {
+      }, function (err) {
         if (callback) {
           callback(err);
         }
@@ -359,10 +360,10 @@
     }
 
     return Promise.resolve()
-      .then(function() {
+      .then(function () {
         return coll.find(filter)._applyFilter();
       })
-      .then(function(arr) {
+      .then(function (arr) {
         var countRemoved = 0;
         return new Promise(function (resolve, reject) {
           if (0 === arr.length) {
@@ -386,13 +387,13 @@
             return countRemoved;
           });
       })
-      .then(function(count) {
+      .then(function (count) {
         coll.lowla.emit('_pending');
         if (callback) {
           callback(null, count);
         }
         return count;
-      }, function(err) {
+      }, function (err) {
         if (callback) {
           callback(err);
         }

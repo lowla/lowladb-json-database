@@ -1,0 +1,21 @@
+{
+  "preset": "google",
+  "requireParenthesesAroundIIFE": true,
+  "maximumLineLength": 120,
+  "validateLineBreaks": "LF",
+  "validateIndentation": 2,
+  "disallowKeywords": [
+    "with"
+  ],
+  "disallowSpacesInAnonymousFunctionExpression": null,
+  "requireSpacesInAnonymousFunctionExpression": {
+    "beforeOpeningRoundBrace": true,
+    "beforeOpeningCurlyBrace": true
+  },
+  "disallowSpacesInsideObjectBrackets": null,
+  "disallowSpacesInsideArrayBrackets": null,
+  "disallowImplicitTypeConversion": [
+    "string"
+  ],
+  "disallowMultipleVarDecl": "exceptUndefined"
+}

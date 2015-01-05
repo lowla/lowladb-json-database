@@ -2,10 +2,12 @@
  * Created by michael on 10/10/14.
  */
 
-(function(LowlaDB) {
+(function (LowlaDB) {
+  'use strict';
+
   var keys;
 
-  var SyncCoordinator = function(lowla, baseUrl) {
+  var SyncCoordinator = function (lowla, baseUrl) {
     this.lowla = lowla;
     this.datastore = lowla.datastore;
 
@@ -25,11 +27,11 @@
     };
   };
 
-  SyncCoordinator.prototype.processPull = function(payload) {
+  SyncCoordinator.prototype.processPull = function (payload) {
     return SyncCoordinator._processPullPayload(this.lowla, this.datastore, payload);
   };
 
-  SyncCoordinator._processPullPayload = function(lowla, datastore, payload) {
+  SyncCoordinator._processPullPayload = function (lowla, datastore, payload) {
     var i = 0;
     var promises = [];
     var collections = {};
@@ -43,15 +45,15 @@
         promises.push(updateIfUnchanged(payload[i].clientNs, payload[i].id));
       }
       else {
-        SyncCoordinator.validateSpecialTypes(payload[i+1]);
+        SyncCoordinator.validateSpecialTypes(payload[i + 1]);
         promises.push(updateIfUnchanged(payload[i].clientNs, payload[i].id, payload[++i]));
       }
       i++;
     }
 
     return Promise.all(promises)
-      .then(function() {
-        LowlaDB.utils.keys(collections).forEach(function(collName) {
+      .then(function () {
+        LowlaDB.utils.keys(collections).forEach(function (collName) {
           var dbName = collName.substring(0, collName.indexOf('.'));
           collName = collName.substring(dbName.length + 1);
           LowlaDB.Cursor.notifyLive(lowla.collection(dbName, collName));
@@ -61,11 +63,11 @@
       });
 
     function updateIfUnchanged(clientNs, lowlaId, doc) {
-      return new Promise(function(resolve, reject) {
+      return new Promise(function (resolve, reject) {
         datastore.transact(txFn, resolve, reject);
 
         function txFn(tx) {
-          tx.load("", "$metadata", checkMeta);
+          tx.load('', '$metadata', checkMeta);
         }
 
         function checkMeta(metaDoc, tx) {
@@ -87,15 +89,15 @@
     }
   };
 
-  SyncCoordinator._updateSequence = function(lowla, sequence) {
-    return new Promise(function(resolve, reject) {
-      lowla.datastore.loadDocument("", "$metadata", {
-        document: function(doc) {
+  SyncCoordinator._updateSequence = function (lowla, sequence) {
+    return new Promise(function (resolve, reject) {
+      lowla.datastore.loadDocument('', '$metadata', {
+        document: function (doc) {
           if (!doc) {
             doc = {};
           }
           doc.sequence = sequence;
-          lowla.datastore.updateDocument("", "$metadata", doc, function() {
+          lowla.datastore.updateDocument('', '$metadata', doc, function () {
             resolve(sequence);
           }, reject);
         }
@@ -103,13 +105,13 @@
     });
   };
 
-  SyncCoordinator.prototype.processChanges = function(payload) {
+  SyncCoordinator.prototype.processChanges = function (payload) {
     var syncCoord = this;
     var lowla = this.lowla;
     var ids = [];
     var seqs = [];
     var updateSeq = true;
-    payload.atoms.map(function(atom) {
+    payload.atoms.map(function (atom) {
       ids.push(atom.id);
       seqs.push(atom.sequence);
     });
@@ -122,10 +124,10 @@
       var payloadIds = ids.slice(0, Math.min(10, ids.length));
 
       return Promise.resolve()
-        .then(function() {
-          return LowlaDB.utils.getJSON(syncCoord.urls.pull, { ids: payloadIds });
+        .then(function () {
+          return LowlaDB.utils.getJSON(syncCoord.urls.pull, {ids: payloadIds});
         })
-        .then(function(pullPayload) {
+        .then(function (pullPayload) {
           if (!pullPayload.length) {
             ids.splice(0, payloadIds.length);
             seqs.splice(0, payloadIds.length);
@@ -151,12 +153,12 @@
 
           return syncCoord.processPull(pullPayload);
         })
-        .then(function() {
+        .then(function () {
           if (updateSeq && seqs.length) {
             return SyncCoordinator._updateSequence(lowla, seqs[0]);
           }
         })
-        .then(function() {
+        .then(function () {
           if (ids.length) {
             return pullSomeDocuments(ids, offset);
           }
@@ -165,44 +167,45 @@
 
     lowla.emit('pullBegin');
     return Promise.resolve()
-      .then(function() {
+      .then(function () {
         return pullSomeDocuments(ids, 0);
       })
-      .then(function() {
+      .then(function () {
         if (updateSeq) {
           return SyncCoordinator._updateSequence(lowla, payload.sequence);
         }
       })
-      .then(function(arg) {
+      .then(function (arg) {
         lowla.emit('pullEnd');
         return arg;
-      }, function(err) {
+      }, function (err) {
         lowla.emit('pullEnd');
         throw err;
       });
   };
 
-  SyncCoordinator.prototype.fetchChanges = function() {
+  SyncCoordinator.prototype.fetchChanges = function () {
     var syncCoord = this;
-    return new Promise(function(resolve, reject) {
-      syncCoord.datastore.loadDocument("", "$metadata", {
+    return new Promise(function (resolve, reject) {
+      syncCoord.datastore.loadDocument('', '$metadata', {
         document: resolve,
         error: reject
       });
     })
-      .then(function(meta) {
+      .then(function (meta) {
         var sequence = (meta && meta.sequence) ? meta.sequence : 0;
         return LowlaDB.utils.getJSON(syncCoord.urls.changes + '?seq=' + sequence);
       })
-      .then(function(payload) {
+      .then(function (payload) {
         return syncCoord.processChanges(payload);
       })
-      .catch(function(err) {
+      .catch(function (err) {
+        /* jshint devel:true */
         console.log('Unable to fetch changes: ' + err);
       });
   };
 
-  SyncCoordinator.validateSpecialTypes = function(obj) {
+  SyncCoordinator.validateSpecialTypes = function (obj) {
     for (var key in obj) {
       if (obj.hasOwnProperty(key)) {
         var val = obj[key];
@@ -255,20 +258,20 @@
     return obj;
   };
 
-  SyncCoordinator.prototype.collectPushData = function(alreadySeen) {
+  SyncCoordinator.prototype.collectPushData = function (alreadySeen) {
     var datastore = this.datastore;
     alreadySeen = alreadySeen || {};
-    return this.lowla._metadata().then(function(metaDoc) {
+    return this.lowla._metadata().then(function (metaDoc) {
       if (!metaDoc || !metaDoc.changes) {
         return null;
       }
 
       return new Promise(function (resolve, reject) {
         var docs = [];
-        datastore.scanDocuments(function(doc) {
+        datastore.scanDocuments(function (doc) {
           var lowlaId = doc.lowlaId;
           doc = doc.document;
-          
+
           if (docs.length >= 10 || alreadySeen.hasOwnProperty(lowlaId)) {
             return;
           }
@@ -281,7 +284,7 @@
             var unsetOps = {};
 
             for (var key in doc) {
-              if (!doc.hasOwnProperty(key) || key === "_id") {
+              if (!doc.hasOwnProperty(key) || key === '_id') {
                 continue;
               }
 
@@ -291,7 +294,7 @@
             }
 
             for (var oldKey in oldDoc) {
-              if (!oldDoc.hasOwnProperty(oldKey) || key === "_id") {
+              if (!oldDoc.hasOwnProperty(oldKey) || key === '_id') {
                 continue;
               }
 
@@ -302,7 +305,7 @@
 
             var ops = null;
             if (0 !== keys(setOps).length) {
-              ops = { $set: setOps };
+              ops = {$set: setOps};
             }
             if (0 !== keys(unsetOps).length) {
               (ops || (ops = {})).$unset = unsetOps;
@@ -318,36 +321,36 @@
               });
             }
           }
-        }, function() {
+        }, function () {
           if (docs.length >= 10) {
             resolve(docs);
             return;
           }
 
-          LowlaDB.utils.keys(metaDoc.changes).forEach(function(lowlaID) {
+          LowlaDB.utils.keys(metaDoc.changes).forEach(function (lowlaID) {
             if (!alreadySeen.hasOwnProperty(lowlaID)) {
-              docs.push({ _lowla: { id: lowlaID, version: metaDoc.changes[lowlaID]._version, deleted: true } });
+              docs.push({_lowla: {id: lowlaID, version: metaDoc.changes[lowlaID]._version, deleted: true}});
             }
           });
 
           resolve(docs);
         }, reject);
       })
-        .then(function(docs) {
+        .then(function (docs) {
           if (!docs || 0 === docs.length) {
             return null;
           }
 
-          return { documents: docs };
+          return {documents: docs};
         });
     });
   };
 
-  SyncCoordinator.prototype.processPushResponse = function(payload, savedDuringPush) {
+  SyncCoordinator.prototype.processPushResponse = function (payload, savedDuringPush) {
     var lowla = this.lowla;
     savedDuringPush = savedDuringPush || [];
-    var makeUpdateHandler = function(docId) {
-      return function() {
+    var makeUpdateHandler = function (docId) {
+      return function () {
         return docId;
       };
     };
@@ -384,16 +387,16 @@
     return Promise.all(promises);
   };
 
-  SyncCoordinator.prototype.clearPushData = function(ids) {
+  SyncCoordinator.prototype.clearPushData = function (ids) {
     var lowla = this.lowla;
     return lowla._metadata()
-      .then(function(metaData) {
+      .then(function (metaData) {
         if (!metaData || !metaData.changes) {
           return;
         }
 
         if (ids && ids.forEach) {
-          ids.forEach(function(id) {
+          ids.forEach(function (id) {
             delete metaData.changes[id];
           });
         }
@@ -408,7 +411,7 @@
       });
   };
 
-  SyncCoordinator.prototype.pushChanges = function() {
+  SyncCoordinator.prototype.pushChanges = function () {
     var syncCoord = this;
     var lowla = this.lowla;
     var alreadySeen = {};
@@ -420,16 +423,16 @@
       }
 
       return Promise.resolve()
-        .then(function() {
+        .then(function () {
           return LowlaDB.utils.getJSON(syncCoord.urls.push, pushPayload);
         })
-        .then(function(response) {
+        .then(function (response) {
           return syncCoord.processPushResponse(response, savedDuringPush);
         })
-        .then(function(updatedIDs) {
+        .then(function (updatedIDs) {
           return syncCoord.clearPushData(updatedIDs);
         })
-        .then(function() {
+        .then(function () {
           return syncCoord.collectPushData(alreadySeen);
         })
         .then(processPushData);
@@ -440,7 +443,7 @@
     }
 
     return this.collectPushData(alreadySeen)
-      .then(function(payload) {
+      .then(function (payload) {
         if (!payload) {
           return;
         }
@@ -448,18 +451,18 @@
         lowla.on('_saveHook', saveHook);
         lowla.emit('pushBegin');
         return processPushData(payload)
-          .then(function(arg) {
+          .then(function (arg) {
             lowla.off('_saveHook', saveHook);
             lowla.emit('pushEnd');
             return arg;
-          }, function(err) {
+          }, function (err) {
             lowla.off('_saveHook', saveHook);
             lowla.emit('pushEnd');
             throw err;
           });
 
       })
-      .catch(function(err) {
+      .catch(function (err) {
         console.log('Unable to push changes: ' + err);
       });
   };
@@ -468,4 +471,3 @@
 
   return LowlaDB;
 })(LowlaDB);
-

@@ -2,7 +2,10 @@
  * Created by michael on 10/9/14.
  */
 
-module.exports = function(grunt) {
+/* jshint node:true */
+module.exports = function (grunt) {
+  'use strict';
+
   grunt.initConfig({
     pkg: grunt.file.readJSON('package.json'),
 
@@ -30,12 +33,16 @@ module.exports = function(grunt) {
     jshint: {
       files: [
         'Gruntfile.js',
-        'src/**/*.js',
+        'src/*.js',
         'tests/**/*.spec.js',
         '!src/vendor/**'],
       options: {
-
+        jshintrc: true
       }
+    },
+
+    jscs: {
+      files: [ '<%= jshint.files %>' ]
     },
 
     karma: {
@@ -65,9 +72,10 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-watch');
   grunt.loadNpmTasks('grunt-contrib-concat');
   grunt.loadNpmTasks('grunt-karma');
+  grunt.loadNpmTasks('grunt-jscs');
 
-  grunt.registerTask('test', ['jshint', 'karma:once']);
+  grunt.registerTask('lint', ['jshint', 'jscs']);
+  grunt.registerTask('test', ['lint', 'karma:once']);
   grunt.registerTask('server', ['karma:watch:start', 'watch']);
-  grunt.registerTask('default', ['jshint', 'karma:once', 'concat', 'uglify']);
+  grunt.registerTask('default', ['lint', 'karma:once', 'concat', 'uglify']);
 };
-

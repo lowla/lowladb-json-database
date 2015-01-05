@@ -1,0 +1,18 @@
+{
+  "extends": "../.jshintrc-base",
+  "browser": true,
+  "globals": {
+    "testUtils": true,
+    "LowlaDB": true,
+    "lowla": true,
+    "console": true,
+    "indexedDB": true,
+
+    "describe": true,
+    "it": true,
+    "beforeEach": true,
+    "afterEach": true,
+    "should": true,
+    "sinon": true
+  }
+}

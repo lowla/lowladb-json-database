@@ -1,4 +1,6 @@
-testUtils.eachDatastore(function(dsName) {
+testUtils.eachDatastore(function (dsName) {
+  'use strict';
+
   describe('LowlaDB Cursor (' + dsName + ')', function () {
     beforeEach(testUtils.setUpFn(dsName));
     afterEach(testUtils.tearDownFn(dsName));

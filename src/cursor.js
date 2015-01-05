@@ -2,7 +2,7 @@
  * Created by michael on 10/15/14.
  */
 
-(function(LowlaDB) {
+(function (LowlaDB) {
   'use strict';
 
   // Public API
@@ -91,7 +91,7 @@
       options._id = cursor._filter._id;
     }
     tx.scan({
-      document: collectDocs, 
+      document: collectDocs,
       done: processDocs,
       options: options
     });
@@ -113,7 +113,7 @@
       }
 
       if (data.length && cursor._options.showPending) {
-        tx.load("", "$metadata", loadMetaForPending);
+        tx.load('', '$metadata', loadMetaForPending);
       }
       else {
         try {
@@ -127,7 +127,7 @@
 
     function loadMetaForPending(metaDoc, tx) {
       if (metaDoc && metaDoc.changes) {
-        data.forEach(function(doc) {
+        data.forEach(function (doc) {
           doc.document.$pending = metaDoc.changes.hasOwnProperty(doc.lowlaId);
         });
       }
@@ -137,14 +137,14 @@
 
     function sortData() {
       var sort = cursor._options.sort;
-      data.sort(function(a,b) {
+      data.sort(function (a, b) {
         if (typeof(sort) === 'string') {
           return docCompareFunc(sort, a, b);
         }
         else if (sort instanceof Array) {
           var answer = 0;
 
-          sort.every(function(criterion) {
+          sort.every(function (criterion) {
             var field, order;
             if (criterion instanceof Array) {
               field = criterion[0];
@@ -173,15 +173,15 @@
     /* jshint validthis:true */
     var cursor = this;
     var answer;
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       cursor._collection.datastore.transact(applyFilter, resolve, reject);
       function applyFilter(tx) {
-        cursor._applyFilterInTx(tx, function(docs) {
+        cursor._applyFilterInTx(tx, function (docs) {
           answer = docs;
         });
       }
     })
-      .then(function() {
+      .then(function () {
         return answer;
       });
   }
@@ -205,7 +205,7 @@
       coll.lowla.liveCursors[key] = [];
     }
 
-    coll.lowla.liveCursors[key].push({ cursor: this, callback: callback });
+    coll.lowla.liveCursors[key].push({cursor: this, callback: callback});
     callback(null, this);
   }
 
@@ -224,17 +224,17 @@
 
   function limit(amount) {
     /* jshint validthis:true */
-    return this.cloneWithOptions({ limit: amount });
+    return this.cloneWithOptions({limit: amount});
   }
 
   function sort(keyOrList) {
     /* jshint validthis:true */
-    return this.cloneWithOptions({ sort: keyOrList });
+    return this.cloneWithOptions({sort: keyOrList});
   }
 
   function showPending() {
     /* jshint validthis:true */
-    return this.cloneWithOptions({ showPending: true });
+    return this.cloneWithOptions({showPending: true});
   }
 
   function each(callback) {
@@ -259,18 +259,18 @@
     /* jshint validthis:true */
     var cursor = this;
     return Promise.resolve()
-      .then(function() {
+      .then(function () {
         return cursor._applyFilter();
       })
-      .then(function(filtered) {
-        filtered = filtered.map(function(doc) {
+      .then(function (filtered) {
+        filtered = filtered.map(function (doc) {
           return doc.document;
         });
         if (callback) {
           callback(null, filtered);
         }
         return filtered;
-      }, function(err) {
+      }, function (err) {
         if (callback) {
           callback(err);
         }
@@ -291,19 +291,19 @@
     }
 
     if (cursor._filter) {
-      return cursor.toArray().then(function(arr) {
+      return cursor.toArray().then(function (arr) {
         return success(arr.length);
       }, error);
     }
     else {
-      return new Promise(function(resolve, reject) {
+      return new Promise(function (resolve, reject) {
         var coll = cursor._collection;
         var clientNs = coll.dbName + '.' + coll.collectionName;
         cursor._collection.datastore.countAll(clientNs, resolve);
       })
-      .then(success, error);
+        .then(success, error);
     }
-    
+
     function success(count) {
       if (0 !== cursor._options.limit) {
         count = Math.min(count, cursor._options.limit);
@@ -313,6 +313,7 @@
       }
       return count;
     }
+
     function error(err) {
       if (callback) {
         callback(err);

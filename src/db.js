@@ -1,5 +1,4 @@
-
-(function(LowlaDB) {
+(function (LowlaDB) {
   'use strict';
 
   // Public API
@@ -31,7 +30,7 @@
       if (arg instanceof Function) {
         callback = arg;
       }
-      else if (typeof(arg) === 'string') {
+      else if (typeof(arg) == 'string') {
         collection = arg;
       }
       else if (typeof(arg) === 'object') {
@@ -39,10 +38,10 @@
       }
     }
 
-    options = options || { namesOnly: false };
+    options = options || {namesOnly: false};
     collection = collection || '';
 
-    var data = { };
+    var data = {};
     var dbPrefix = this.name + '.' + collection;
     return new Promise(fetchNames)
       .then(applyOptions)
@@ -51,13 +50,13 @@
 
     function fetchNames(resolve, reject) {
       datastore.scanDocuments({
-        document: function(doc) {
+        document: function (doc) {
           if (doc.clientNs.indexOf(dbPrefix) === 0) {
             data[doc.clientNs] = true;
           }
 
         },
-        done: function() {
+        done: function () {
           return resolve(data);
         },
         error: reject

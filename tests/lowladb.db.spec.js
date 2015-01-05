@@ -2,7 +2,9 @@
  * Created by michael on 10/14/14.
  */
 
-testUtils.eachDatastore(function(dsName) {
+testUtils.eachDatastore(function (dsName) {
+  'use strict';
+
   describe('LowlaDB DB (' + dsName + ')', function () {
 
     beforeEach(testUtils.setUpFn(dsName));

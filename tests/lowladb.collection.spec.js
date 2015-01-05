@@ -1,4 +1,6 @@
-testUtils.eachDatastore(function(dsName) {
+testUtils.eachDatastore(function (dsName) {
+  'use strict';
+
   describe('LowlaDB Collection (' + dsName + ')', function () {
     beforeEach(testUtils.setUpFn(dsName));
     afterEach(testUtils.tearDownFn());
@@ -38,27 +40,27 @@ testUtils.eachDatastore(function(dsName) {
     });
 
     describe('insert()', function () {
-      it('can insert documents using a custom lowlaId generator', function(done) {
+      it('can insert documents using a custom lowlaId generator', function (done) {
         lowla.close();
-        lowla = new LowlaDB({ datastore: dsName, lowlaId: ssnIdGenerator });
+        lowla = new LowlaDB({datastore: dsName, lowlaId: ssnIdGenerator});
         var coll = lowla.collection('dbName', 'CollName');
-        var doc = { ssn: '020-43-9853' };
-        
+        var doc = {ssn: '020-43-9853'};
+
         coll
           .insert(doc)
-          .then(function() {
-            lowla.datastore.loadDocument('dbName.CollName', doc.ssn, testUtils.cb(done, function(foundDoc) {
+          .then(function () {
+            lowla.datastore.loadDocument('dbName.CollName', doc.ssn, testUtils.cb(done, function (foundDoc) {
               should.exist(foundDoc);
               foundDoc.ssn.should.equal(doc.ssn);
             }));
           })
           .then(null, done);
-        
+
         function ssnIdGenerator(coll, doc) {
           return doc.ssn;
         }
       });
-      
+
       it('can create documents', function (done) {
         var coll = lowla.collection('dbName', 'CollName');
         coll.insert({a: 1})
@@ -304,7 +306,7 @@ testUtils.eachDatastore(function(dsName) {
       it('supports $unset operations', function () {
         return coll.insert({a: 1, b: 2, c: 3})
           .then(function () {
-            return coll.findAndModify({a: 1}, {$unset: {b: ""}});
+            return coll.findAndModify({a: 1}, {$unset: {b: ''}});
           })
           .then(function (obj) {
             obj.a.should.equal(1);
@@ -312,7 +314,7 @@ testUtils.eachDatastore(function(dsName) {
             should.not.exist(obj.b);
 
             // Shouldn't matter if the field isn't present
-            return coll.findAndModify({a: 1}, {$unset: {notThere: ""}});
+            return coll.findAndModify({a: 1}, {$unset: {notThere: ''}});
           })
           .then(function (obj) {
             obj.a.should.equal(1);
