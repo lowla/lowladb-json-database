@@ -8,28 +8,37 @@ summary: A database for mobile applications
 <div id="Intro">
   
 ## Introduction ##
-LowlaDB is a database designed from the ground up to support connected mobile applications. It can be used to create the following kinds of apps:
+LowlaDB is a JSON database with built-in mobile sync and a MongoDB-like API. It's designed to integrate easily with today’s web databases e.g. MongoDB and popular MVC frameworks e.g. AngularJS. We have released a Javascript implementation for mobile and PC browsers and we are working on native versions for iOS and for Android that will be packaged as Cordova plugins.
 
-* Super-fast microsites for mobile devices
-* Offline-capable apps for consumers
-* Offline-capable apps for the enterprise
+#### Why is this needed? ####
+To improve the user experience on mobile we often need to store, access and sync data to the user’s device.  For web developers, this means having to bring in unfamiliar frameworks and platforms (e.g. Titanium, Xamarin, PouchDB/CouchDB) which come with a significant learning curve and add complexity to your project. Wouldn’t it be great if there was an easier way to create a fully-functional mobile client?
 
-A microsite is a typically a small cluster of web pages that function as a discrete entity and have their own domain name or sub-domain. They are often used for promotional purposes to support commercial marketing campaigns.  By caching the microsite content within LowlaDB, user access to the content can be accelerated.
+#### Who should use it? ####
+Web developers working with common front end frameworks (e.g. Angular, Ember and Backbone) and back end platforms (e.g. MongoDB and Node.js) who want to add a syncing mobile client with the minimum learning curve and additional programming effort.
 
-Offline-capable apps include enterprise productivity apps, such as contact management or field service tracking.  For these apps it is very useful to be able to access information when the mobile device is offline.  
+#### What can it be used for? ####
+LowlaDB is suitable for a wide variety of applications including:
 
-The usability of almost any kind of consumer app can be enhanced by adding offline capability.  This allows the app is still be responsive when the wireless network is busy or unavailable.
+- business-to-consumer applications (B2C)
+- business-to-employee applications (B2E)
+- much faster-responding web sites for mobile users (e.g. for microsites)
 
-Our technical objectives for LowlaDB are fourfold:
- 
-1. Low-latency data access
-2. Offline capability
-3. Multi-platform capability
-4. Flexibility to sync to different back ends
- 
-In supporting these objectives, we’ve put a lot of effort into making the developer API easy and intuitive to use.
- 
+Our technical objectives for LowlaDB are :
+
+1. Simplicity of development
+2. Low-latency data access
+3. Offline capability
+4. Multi-platform capability
+5. Flexibility to sync to different back ends 
 </div>
+
+<div id="Simplicity">
+    
+## Simplicity ##
+LowlaDB is designed as an easy-to-program JSON database for mobile devices. The developer API for LowlaDB is based closely on MongoDB to which we’ve added a number of mobile sync functions. An overview of the API follows [here](browser.html), but for more details on the direction in which we intend to take the API, see the documentation for the Node.js MongoDB driver [here](http://mongodb.github.io/node-mongodb-native/index.html). In addition to the basic API, LowlaDB adds extensions to support real-time data updates and wherever possible offers promise-based APIs as an alternative to callbacks.
+
+</div>
+
 <div id="Latency">
   
 ## Low latency ##
@@ -70,11 +79,5 @@ Mobile apps are a combination of a front end running on the device and a back en
 ![LowlaDB Architecture](LowlaDB-architecture-1.png)
  
 With the appropriate adapters, LowlaDB syncs data from a wide variety of back ends down to the device so that apps can always use data that is stored locally. That makes applications fast because data is always close by and reliable because they never have to worry about wireless signal strength or the availability of WiFi.  In the initial implementation adapters are written in Javascript and run on Node.js, although the architecture makes provision for creating adapters in other languages.
- 
-</div>
-<div id="Developer">
-  
-## Developer API ##
-Database APIs should be easy and intuitive to use. The developer API for LowlaDB is based closely on MongoDB. An overview of the API follows, but for more details on the direction in which we intend to take the API, see the documentation for the Node.js MongoDB driver [here](http://mongodb.github.io/node-mongodb-native/index.html). In addition to the basic API, LowlaDB adds extensions to support real-time data updates and wherever possible offers promise-based APIs as an alternative to callbacks.
  
 </div>
