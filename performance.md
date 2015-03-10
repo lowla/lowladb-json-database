@@ -53,6 +53,9 @@ BlackBerry Z30
 Nexus 7
 : Chrome on a first-generation Nexus 7 running Android 4.4.4. This shows LowlaDB performance on an older, lower-spec Android device.
 
+OnePlus One
+: Chrome on a current-generation Android device.
+
 Lumia 530
 : Internet Explorer on a Nokia Lumia 530 running Windows Phone 8.1. Although IndexedDB is available on this configuration, it is subject to quotas that prevent the benchmark from executing successfully.
 
@@ -75,6 +78,7 @@ Lumia 530
     <tr><td>iPhone 6</td><td>251429</td><td>1055</td><td>507</td><td>6087</td><td>22149</td><td>16</td><td>84</td><td>80</td></tr>
     <tr><td>BB Z30</td><td>33593</td><td>396</td><td>11</td><td>3974</td><td>8966</td><td>27</td><td>282</td><td>270</td></tr>
     <tr><td>Nexus 7</td><td>84950</td><td>226</td><td>6</td><td>2523</td><td>5445</td><td>34</td><td>404</td><td>425</td></tr>
+    <tr><td>OnePlus One</td><td>81156</td><td>147</td><td>5</td><td>3086</td><td>7325</td><td>20</td><td>379</td><td>222</td></tr>
     <tr><td>Lumia 530</td><td>-</td><td>-</td><td>-</td><td>-</td><td>12257</td><td>23</td><td>236</td><td>236</td></tr>
   </tbody>
 </table>
@@ -94,6 +98,7 @@ Lumia 530
     <tr><td>iPhone 6</td><td>32331</td><td>1636</td><td>53</td><td>965</td><td>74962</td><td>1</td><td>14</td><td>12</td></tr>
     <tr><td>BB Z30</td><td>26471</td><td>1188</td><td>16</td><td>2960</td><td>4537</td><td>5</td><td>55</td><td>44</td></tr>
     <tr><td>Nexus 7</td><td>22237</td><td>236</td><td>17</td><td>1271</td><td>1240</td><td>9</td><td>69</td><td>67</td></tr>
+    <tr><td>OnePlus One</td><td>11501</td><td>145</td><td>9</td><td>773</td><td>1013</td><td>9</td><td>33</td><td>36</td></tr>
     <tr><td>Lumia 530</td><td>-</td><td>-</td><td>-</td><td>-</td><td>31663</td><td>5</td><td>52</td><td>55</td></tr>
   </tbody>
 </table>
