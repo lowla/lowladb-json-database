@@ -27,6 +27,8 @@ Our technical objectives for LowlaDB are:
 
 Full LowlaDB documentation is available at [http://lowla.github.io/lowladb-json-database](http://lowla.github.io/lowladb-json-database).
 
+You can also view a short introduction for developers, highlighting the architecture and API, at [http://www.slideshare.net/sives/lowla-db-preso-mar-2015](http://www.slideshare.net/sives/lowla-db-preso-mar-2015)
+
 ## License ##
 LowlaDB is available under the MIT license.
 
