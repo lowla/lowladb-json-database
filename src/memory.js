@@ -29,7 +29,10 @@
     if (obj) {
       var copy = {};
       LowlaDB.utils.keys(obj).forEach(function (key) {
-        if (typeof obj[key] === 'object') {
+        if (obj[key] instanceof Array) {
+          copy[key] = obj[key].slice();
+        }
+        else if (typeof obj[key] === 'object') {
           copy[key] = _copyObj(obj[key]);
         }
         else {
