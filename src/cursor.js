@@ -205,8 +205,18 @@
       coll.lowla.liveCursors[key] = [];
     }
 
-    coll.lowla.liveCursors[key].push({cursor: this, callback: callback});
+    var sentinel = {};
+    coll.lowla.liveCursors[key].push({cursor: this, callback: callback, sentinel: sentinel});
     callback(null, this);
+
+    return function () {
+      for (var i = 0; i < coll.lowla.liveCursors[key].length; i++) {
+        if (coll.lowla.liveCursors[key][i].sentinel == sentinel) {
+          coll.lowla.liveCursors[key].splice(i, 1);
+          return;
+        }
+      }
+    };
   }
 
   function cloneWithOptions(options) {

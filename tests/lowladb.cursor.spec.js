@@ -338,6 +338,29 @@ testUtils.eachDatastore(function (dsName) {
             });
           });
       });
+
+      it('can stop watching changes on collections', function () {
+        var cb = testUtils.sandbox.stub();
+        var offFn;
+
+        return Promise.resolve()
+          .then(function () {
+            offFn = coll.find({}).sort('a').on(cb);
+            return coll.findAndModify({a: 1}, {$set: { b: 3 }});
+          })
+          .then(function () {
+            cb.callCount.should.equal(2);
+            offFn();
+            return coll.findAndModify({a: 1}, {$set: { b: 4 }});
+          })
+          .then(function () {
+            cb.callCount.should.equal(2);
+
+            // Make sure calling it twice doesn't fail
+            offFn();
+          });
+      });
+
     });
   });
 });
