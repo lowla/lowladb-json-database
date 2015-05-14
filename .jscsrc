@@ -1,5 +1,6 @@
 {
   "preset": "google",
+  "disallowKeywordsOnNewLine": [],
   "requireParenthesesAroundIIFE": true,
   "maximumLineLength": 120,
   "validateLineBreaks": "LF",
@@ -17,5 +18,6 @@
   "disallowImplicitTypeConversion": [
     "string"
   ],
+
   "disallowMultipleVarDecl": "exceptUndefined"
 }
