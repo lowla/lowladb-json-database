@@ -209,7 +209,7 @@
     for (var key in obj) {
       if (obj.hasOwnProperty(key)) {
         var val = obj[key];
-        if ('object' === typeof val) {
+        if (val && 'object' === typeof val) {
           if (val.hasOwnProperty('_bsonType')) {
             switch (val._bsonType) {
               case 'Binary':
@@ -233,7 +233,7 @@
       if (obj.hasOwnProperty(key)) {
         var val = obj[key];
         if ('object' === typeof val) {
-          if (val.hasOwnProperty('_bsonType')) {
+          if (val && val.hasOwnProperty('_bsonType')) {
             switch (val._bsonType) {
               case 'Binary':
                 obj[key] = LowlaDB.utils.b64toBlob(val.encoded);

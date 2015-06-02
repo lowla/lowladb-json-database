@@ -144,6 +144,19 @@ testUtils.eachDatastore(function (dsName) {
           });
       });
 
+      it('can import fields with null values', function () {
+        var pullResponse = makeAdapterResponse({_id: '1234', a: 1, b: null, _version: 1});
+        return lowla._syncCoordinator.processPull(pullResponse)
+          .then(function () {
+            return coll.find().toArray();
+          })
+          .then(function (arr) {
+            arr.should.have.length(1);
+            arr[0].a.should.equal(1);
+            should.equal(arr[0].b, null);
+          });
+      });
+
       it('deletes documents based on pull response', function () {
         var pullResponse = makeAdapterResponse({_id: '1234', a: 1, _version: 1});
         return lowla._syncCoordinator.processPull(pullResponse)
